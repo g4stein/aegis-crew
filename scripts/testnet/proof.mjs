@@ -100,10 +100,15 @@ async function check() {
 }
 
 async function proof() {
-  const me = process.env.NEAR_TESTNET_ACCOUNT_ID;
-  const key = process.env.NEAR_TESTNET_PRIVATE_KEY;
+  // Secrets pasted into GitHub often carry a stray space, newline, or quotes; strip them.
+  const clean = (v) => (v ?? '').trim().replace(/^["']+|["']+$/g, '').trim();
+  const me = clean(process.env.NEAR_TESTNET_ACCOUNT_ID);
+  const key = clean(process.env.NEAR_TESTNET_PRIVATE_KEY);
   const wasmPath = process.env.AEGIS_GUARD_WASM;
   expect(me && key, 'set NEAR_TESTNET_ACCOUNT_ID and NEAR_TESTNET_PRIVATE_KEY (repository secrets)');
+  // Never print the key itself; describe what is wrong with it.
+  expect(/^[a-z0-9_-]+(\.[a-z0-9_-]+)*\.testnet$/.test(me), `NEAR_TESTNET_ACCOUNT_ID must be a testnet account like name.testnet (got ${me.length} chars ending "${me.slice(-12)}")`);
+  expect(/^ed25519:[1-9A-HJ-NP-Za-km-z]{60,100}$/.test(key), `NEAR_TESTNET_PRIVATE_KEY must look like ed25519:<base58> with no spaces (got ${key.length} chars, starts "${key.slice(0, 8)}")`);
   expect(wasmPath && existsSync(wasmPath), `AEGIS_GUARD_WASM must point to the built contract (got ${wasmPath})`);
   const wasm = readFileSync(wasmPath);
   const owner = new Account(me, provider, key);
