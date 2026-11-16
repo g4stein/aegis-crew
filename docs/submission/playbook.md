@@ -32,7 +32,7 @@ AEGIS CREW reads a dead 2019 smart contract, writes its spec, and guards it with
 | "guard: 7 checks" | 13 checks | `CHECKS` in `aegis-guard/src/lib.rs` |
 | "a publishable bug in NEAR's library" | "`omni-transaction` 0.5.0 emits non-canonical RLP about 1 in 128 signatures; go-ethereum rejects it. Issue: <link once filed>" | `docs/upstream/omni-transaction-leading-zero.md` |
 | "runnable by a judge in minutes" | "The Vercel demo runs in the browser instantly; the Forge needs a clone and `npm install`" | README |
-| "deployed on testnet" | "testnet deployment is scripted (GitHub Actions) and is the next step", until the workflow runs green | `.github/workflows/testnet-proof.yml` |
+| "pauses Ethereum contracts today" | "the guard is verified on NEAR testnet and produces a valid signed `pause()`; broadcasting to Sepolia is next" | `.kiro/artifacts/testnet-proof.json` |
 | "Kiro Crew runs the swarm" | "the Crew is configured (`crew.yaml`, `install.sh`)", until you've run it and captured a heartbeat | task 7.3 |
 | "7 ms" everywhere | "3 ms in the browser, 7–8 ms through MCP stdio, budget 500 ms" | e2e tests, screenshot 08 |
 
@@ -43,13 +43,12 @@ Done in the repo:
 - [x] Public repo, MIT license detected by GitHub, `/.kiro` at the root and tracked
 - [x] Working URL with no `[ERR]`: live-mock runs in the tab (commit `7cbea90`)
 - [x] CI green: typecheck, PBT, e2e, UI audit, build, Forge reproducibility, Rust tests, wasm build
-- [x] Testnet proof workflow and script (`--check` mode verified against testnet)
+- [x] Testnet proof green ([run 43944959335](https://github.com/g4stein/aegis-crew/actions/runs/43944959335)): keyless guard, restricted Sentinel key, real MPC signature in 8.2 s, signer = derived address, 3 refusals
 - [x] Upstream issue draft, Devpost text, video script, blog draft, social post
 
 Needs you:
 
 - [ ] **Redeploy Vercel** from `main` and open `/?source=live-mock`. Check that the masthead says `LIVE-MOCK · IN-TAB` and the bulletin reaches "legacy-vault is paused."
-- [ ] **Testnet proof:** create a testnet account (faucet, about 5 NEAR), add the secrets `NEAR_TESTNET_ACCOUNT_ID` and `NEAR_TESTNET_PRIVATE_KEY`, and run *Actions → testnet-proof → Run workflow*. Send me the run link and I'll put the explorer links in the README and video script.
 - [ ] **File the upstream issue** from `docs/upstream/omni-transaction-leading-zero.md` under your GitHub account, then replace "<link once filed>".
 - [ ] **Kiro Crew:** run `scripts/crew/install.sh` with the `kirocrew` CLI and save one heartbeat log or screenshot to `.kiro/artifacts/`. This makes the Best Kiro Crew App entry evidence-backed.
 - [ ] **Record the video** (`video-script.md`), upload it to YouTube as public, with no copyrighted music.

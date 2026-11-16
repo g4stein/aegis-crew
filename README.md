@@ -13,6 +13,8 @@ Kiroween 2026, **Frankenstein** category. AEGIS CREW stitches together parts tha
 
 The result is one pipeline: legacy code goes in, and a verified emergency `pause()` comes out within milliseconds of a breach, with no private key anywhere in the loop.
 
+**Verified on NEAR testnet:** a guard account with no keys, a Sentinel key that can only call `request_pause`, and a real MPC signature for `pause()` returned [8.2 s after the request](https://testnet.nearblocks.io/txns/BLKPWfAZXpGzSX3NxSgbHdmghQjnqNXKKM61ugyEemdN). Its signer recovers to the MPC-derived address. Details in [Testnet proof](#testnet-proof-aegis-guard-on-near-testnet).
+
 **Try it:** [aegis-crew.vercel.app/?source=live-mock](https://aegis-crew.vercel.app/?source=live-mock). The whole pipeline runs in your browser tab: a breach fires 15 s after load and ends in a confirmed pause. Nothing to install.
 
 | Part | What it does |
@@ -88,7 +90,24 @@ npm run -w aegis-sentinel guard-vectors  # regenerate guard conformance vectors 
 5. waits for the MPC signature and checks offline that the signed transaction is `pause()` to the allowlisted target and that its signer recovers to the MPC-derived address;
 6. checks three refusals: a non-Sentinel caller, a replayed breach, and the Sentinel key calling an owner method.
 
-It writes every explorer link to `.kiro/artifacts/testnet-proof.json`. To run it, add the repo secrets `NEAR_TESTNET_ACCOUNT_ID` and `NEAR_TESTNET_PRIVATE_KEY` (a testnet account with about 5 NEAR), then start the workflow from the Actions tab. **It has not run yet**; this README will link the transactions once it does.
+**Result** (run [43944959335](https://github.com/g4stein/aegis-crew/actions/runs/43944959335), commit `46903f2`; full record in [`.kiro/artifacts/testnet-proof.json`](.kiro/artifacts/testnet-proof.json)):
+
+| Step | Evidence |
+|---|---|
+| Guard deployed and initialized, 0 access keys | [tx](https://testnet.nearblocks.io/txns/GUyPtnHvE1RAZADE7G2rsvXT9VMsXNx1q9yqyGjjHLBQ) · [account](https://testnet.nearblocks.io/address/guard-r43944959335.aegis-g4stein.testnet) · wasm sha256 `564a6bac…84b7f2` |
+| Sentinel created; its only key is `FunctionCall`, `request_pause` on the guard | [tx](https://testnet.nearblocks.io/txns/5i4k5FoAZZJBVu5SkJKLitPD1yDCsQjSJrG8FuEmdVU) |
+| Target allowlisted, fee quote posted | [tx](https://testnet.nearblocks.io/txns/J13wn2tCbQt52RV54wubptXBPjSnZBgwyZzBiUPRg6xX) |
+| `preview_pause`: all 13 checks pass | log |
+| `request_pause` from the Sentinel key, 0 deposit → guard pays → `v1.signer-prod.testnet.sign` → `on_signature` | [tx](https://testnet.nearblocks.io/txns/BLKPWfAZXpGzSX3NxSgbHdmghQjnqNXKKM61ugyEemdN), signed in **8.2 s** |
+| Signed tx: EIP-1559, chain 11155111, `to` = allowlisted target, `data` = `0x8456cb59`, value 0; hashes match | `testnet-proof.json` |
+| Signer recovers to the MPC-derived address `0xB1Db2c4D9681D2c544D6F925cf1b79ab8dc0909c` | `testnet-proof.json` |
+| Owner calls `request_pause` → `rejected: not_sentinel` | [tx](https://testnet.nearblocks.io/txns/FmnqbAoAzD7H7vPYxZMV3eyzfhoQTXHu6Z9FLHge4VQu) |
+| Sentinel replays the breach → `rejected: duplicate_breach` | [tx](https://testnet.nearblocks.io/txns/FnV7XjiwHaTSXKXFcJBPeJzNBhXZRLVC9J8kD8E4svhu) |
+| Sentinel key calls `set_sentinel` → refused by NEAR itself: "Access key does not allow method set_sentinel" | log |
+
+The signed `pause()` was not broadcast to Sepolia: the target in `config/guarded.json` is a placeholder address with no contract, and the derived address holds no Sepolia ETH. To broadcast, deploy a pausable contract that grants the pause role to the derived address, fund that address, and run the workflow with `broadcast` ticked and `target_address` set.
+
+To rerun: add the repo secrets `NEAR_TESTNET_ACCOUNT_ID` and `NEAR_TESTNET_PRIVATE_KEY` (a testnet account with at least 3.7 NEAR; each run locks about 3.2 NEAR in the keyless guard), then start the workflow from the Actions tab.
 
 ---
 
@@ -117,7 +136,7 @@ Creating `aegis-forge/input/legacy-vault.sol` fired `archivist-intake`. The `aeg
 
 ### A bug only the real network could find
 
-The first real MPC signature on testnet (run [43940044484](https://github.com/g4stein/aegis-crew/actions/runs/43940044484)) was rejected by the guard with `recovery_id_mismatch`. The guard assumed the parity of `big_r`'s prefix equals `recovery_id`. It doesn't: the MPC network normalizes `s` to the low half of the curve order, which flips the parity, and only `recovery_id` reflects that. The response had prefix `03` with `recovery_id` 0, and only parity 0 recovers the MPC-derived address. Every mocked test had built its signatures under the same wrong assumption, so they all passed. The guard and its mirror now take parity from `recovery_id`. A Rust regression test replays that exact signature and checks with `env::ecrecover` that it recovers the derived key, and the conformance vectors include it.
+The first real MPC signature on testnet (run [43940044484](https://github.com/g4stein/aegis-crew/actions/runs/43940044484)) was rejected by the guard with `recovery_id_mismatch`. After the fix, the next run ([43944959335](https://github.com/g4stein/aegis-crew/actions/runs/43944959335)) passed end to end. The guard assumed the parity of `big_r`'s prefix equals `recovery_id`. It doesn't: the MPC network normalizes `s` to the low half of the curve order, which flips the parity, and only `recovery_id` reflects that. The response had prefix `03` with `recovery_id` 0, and only parity 0 recovers the MPC-derived address. Every mocked test had built its signatures under the same wrong assumption, so they all passed. The guard and its mirror now take parity from `recovery_id`. A Rust regression test replays that exact signature and checks with `env::ecrecover` that it recovers the derived key, and the conformance vectors include it.
 
 ### Mutation testing
 
@@ -153,7 +172,7 @@ Deliberate bugs were injected one at a time, and every one was caught:
 - **Where the key lives.** `AEGIS_SIGNER_KEY` comes from `.env` (git-ignored; see [`.env.example`](.env.example)) and is read only by the chain-state server process. No tool returns it, so it never enters an agent's context, and the browser bundle contains no chain or signer code: [`tests/e2e/bundle-boundary.test.ts`](aegis-sentinel/tests/e2e/bundle-boundary.test.ts) walks the bundle's import graph and fails if it reaches the Node host, the chain/config/crypto adapters, the MCP server, or Node-only packages. The server also ignores unexpanded `${...}` placeholders passed by an MCP host, so a literal `"${AEGIS_SIGNER_KEY}"` can never override `.env`.
 - **Defense in depth.** The pure core rejects any calldata other than `0x8456cb59`, any non-zero value, and any target or chain not on the allowlist (P6). EIP-1559 transactions carry `chainId`, and each contract and chain gets its own derivation path, so signatures cannot be replayed elsewhere.
 - **Agents are least-privilege.** Solidity input is treated as data, never compiled or executed. The Sentinel agent has no shell and no write access.
-- **Status.** The Aegis Guard contract is implemented, unit-tested in near-sdk's mocked blockchain, and builds to a 264 KB wasm with cargo-near in CI. The testnet deployment is scripted but has not run yet (task 5.5), and `near-workspaces` sandbox tests are still pending (5.3). Live EVM adapters are task 6. Today the full pipeline runs against the mock chain, with the guard enforced by its conformance-tested TypeScript mirror, both in the Node runtime and in the browser tab.
+- **Status.** The Aegis Guard contract is unit-tested in near-sdk's mocked blockchain, built with cargo-near in CI, and verified on NEAR testnet: deployment, restricted Sentinel key, real MPC signature, and three refusals (see Testnet proof). The fee oracle is still the owner account rather than its own restricted key. The signed `pause()` hasn't been broadcast to an EVM chain yet, and live EVM adapters (task 6) are pending. The dashboard demo runs against the mock chain, with the guard enforced by its conformance-tested TypeScript mirror, both in the Node runtime and in the browser tab.
 
 ---
 

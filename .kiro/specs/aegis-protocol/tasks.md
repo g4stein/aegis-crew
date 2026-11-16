@@ -46,12 +46,13 @@ Each task lists the requirements it covers. Tasks marked `*` are optional for th
     - _Requirements: 2.5, 2.8, 2.9, 2.12_
     - _Requirements: 2.5, 2.7, 2.8, 2.9, 2.10_
   - [ ] 5.3 `near-workspaces` sandbox tests for the guard (needs the `wasm32-unknown-unknown` target; not installable in this sandbox)
-    - Wasm build done: `aegis_guard.wasm` builds with cargo-near on Rust 1.86 in `.github/workflows/ci.yml` on every push (264,188 bytes after wasm-opt; first green run 43931303774) and exports every contract method. Sandbox tests still pending.
+    - Wasm build done: `aegis_guard.wasm` builds with cargo-near on Rust 1.86 in `.github/workflows/ci.yml` on every push (about 264 KB after wasm-opt; first green run 43931303774) and exports every contract method. Sandbox tests still pending.
     - _Requirements: 2.8, 2.9, 2.16_
   - [x] 5.4 `contracts/pause-tx` (Rust, omni-transaction) emits 310 vectors; Sentinel test matches unsigned bytes, signing hash, and signed bytes for every vector
     - _Requirements: 2.15_
   - [ ] 5.5 Deploy to testnet; add a function-call key for the Sentinel account restricted to `request_pause` and one for the fee oracle restricted to `update_fee_quote`; fund the guard for sign deposits; record the derived EVM address
-    - Run 43940044484 deployed a keyless guard, created the Sentinel, allowlisted the target, passed `preview_pause` (13 checks), and got a real MPC signature, which the guard then rejected (`recovery_id_mismatch`). Fixed: parity now comes from `recovery_id` (the MPC normalizes `s`); regression test `uses_recovery_id_not_the_point_prefix_for_parity`. Awaiting a green run.
+    - Run 43940044484 deployed a keyless guard, created the Sentinel, allowlisted the target, passed `preview_pause` (13 checks), and got a real MPC signature, which the guard then rejected (`recovery_id_mismatch`). Fixed: parity now comes from `recovery_id` (the MPC normalizes `s`); regression test `uses_recovery_id_not_the_point_prefix_for_parity`.
+    - **Green: run 43944959335** (commit 46903f2). Guard `guard-r43944959335.aegis-g4stein.testnet` (0 access keys), Sentinel key `FunctionCall request_pause` only, MPC signature in 8.2 s, signer = derived address 0xB1Db2c4D9681D2c544D6F925cf1b79ab8dc0909c, refusals `not_sentinel`, `duplicate_breach`, and access-key method denial. Record: `.kiro/artifacts/testnet-proof.json`. Remaining for this task: a separate fee-oracle account with a key restricted to `update_fee_quote` (the run uses the owner).
     - Scripted: `.github/workflows/testnet-proof.yml` + `scripts/testnet/proof.mjs` deploy a keyless guard, create a Sentinel with one `request_pause` function-call key, request a real MPC signature, verify the signer recovers to the derived address, check three refusals, and write `.kiro/artifacts/testnet-proof.json`. Needs repo secrets `NEAR_TESTNET_ACCOUNT_ID` / `NEAR_TESTNET_PRIVATE_KEY`. The fee oracle is still the owner account in this script.
     - _Requirements: 2.5, 2.7_
 

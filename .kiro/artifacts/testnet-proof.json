@@ -1,0 +1,115 @@
+{
+  "startedAt": "2026-11-16T20:01:22.654Z",
+  "network": "testnet",
+  "nearRpc": "https://test.rpc.fastnear.com",
+  "mpcContract": "v1.signer-prod.testnet",
+  "owner": "aegis-g4stein.testnet",
+  "guard": "guard-r43944959335.aegis-g4stein.testnet",
+  "sentinel": "sentinel-r43944959335.aegis-g4stein.testnet",
+  "links": {
+    "guardDeploy": "https://testnet.nearblocks.io/txns/GUyPtnHvE1RAZADE7G2rsvXT9VMsXNx1q9yqyGjjHLBQ",
+    "guardAccount": "https://testnet.nearblocks.io/address/guard-r43944959335.aegis-g4stein.testnet",
+    "sentinelCreate": "https://testnet.nearblocks.io/txns/5i4k5FoAZZJBVu5SkJKLitPD1yDCsQjSJrG8FuEmdVU",
+    "allowlistAndQuote": "https://testnet.nearblocks.io/txns/J13wn2tCbQt52RV54wubptXBPjSnZBgwyZzBiUPRg6xX",
+    "requestPause": "https://testnet.nearblocks.io/txns/BLKPWfAZXpGzSX3NxSgbHdmghQjnqNXKKM61ugyEemdN"
+  },
+  "checks": {
+    "guardAccessKeys": 0,
+    "sentinelKeys": [
+      {
+        "FunctionCall": {
+          "allowance": "450000000000000000000000",
+          "method_names": [
+            "request_pause"
+          ],
+          "receiver_id": "guard-r43944959335.aegis-g4stein.testnet"
+        }
+      }
+    ],
+    "guardChecks": [
+      "ids_valid",
+      "allowlisted",
+      "not_in_flight",
+      "not_duplicate",
+      "rate_limit",
+      "fee_quote_present",
+      "fee_quote_fresh",
+      "target_is_allowlisted_address",
+      "chain_matches",
+      "calldata_is_pause_selector",
+      "value_is_zero",
+      "fee_within_cap",
+      "guard_balance_covers_deposit"
+    ],
+    "signedTx": {
+      "type": "eip1559",
+      "chainId": 11155111,
+      "to": "0x000000000000000000000000000000000000ae61",
+      "data": "0x8456cb59",
+      "value": "0",
+      "unsignedMatchesPayloadHash": true,
+      "signedHashMatches": true,
+      "recoveredSigner": "0xB1Db2c4D9681D2c544D6F925cf1b79ab8dc0909c",
+      "recoveredEqualsDerived": true
+    }
+  },
+  "negative": {
+    "notSentinel": {
+      "refused": true,
+      "reason": "rejected: not_sentinel",
+      "tx": "https://testnet.nearblocks.io/txns/FmnqbAoAzD7H7vPYxZMV3eyzfhoQTXHu6Z9FLHge4VQu"
+    },
+    "replayedBreach": {
+      "refused": true,
+      "reason": "rejected: duplicate_breach",
+      "tx": "https://testnet.nearblocks.io/txns/FnV7XjiwHaTSXKXFcJBPeJzNBhXZRLVC9J8kD8E4svhu"
+    },
+    "sentinelCallsOwnerMethod": {
+      "refused": true,
+      "reason": "Access key does not allow method set_sentinel"
+    }
+  },
+  "derivedAddress": "0xB1Db2c4D9681D2c544D6F925cf1b79ab8dc0909c",
+  "derivedPublicKey": "secp256k1:44zBPmQ7SPpWZSxMMaCTp5UoiWkd3QZ4o1U2Xq83fYRNwfwrChk46DQS4rxs6ZYwHNGWqRaBnyQs1ndg1UxvU3aB",
+  "target": {
+    "chain": "eip155:11155111",
+    "address": "0x000000000000000000000000000000000000ae61",
+    "nonce": "0",
+    "maxFeePerGas": "2000000000",
+    "maxPriorityFeePerGas": "1000000000",
+    "feesFrom": "defaults (no SEPOLIA_RPC_URL)"
+  },
+  "mitigation": {
+    "mitigation_id": "legacy-vault_brk_testnet_r43944959335",
+    "contract_id": "legacy-vault",
+    "breach_id": "brk_testnet_r43944959335",
+    "status": "signed",
+    "requested_at_block": "277997769",
+    "requested_at_ms": "1794859292680",
+    "chain_id": "11155111",
+    "to": "0x000000000000000000000000000000000000ae61",
+    "nonce": "0",
+    "gas_limit": "60000",
+    "max_fee_per_gas": "2000000000",
+    "max_priority_fee_per_gas": "1000000000",
+    "derivation_path": "aegis/legacy-vault/eip155:11155111",
+    "unsigned_tx": "0x02ee83aa36a780843b9aca00847735940082ea6094000000000000000000000000000000000000ae6180848456cb59c0",
+    "payload_hash": "0xa7ee310aca4b14c25da54abf7beb6a7208247c9b270b8bcd29675b2d03c04489",
+    "deposit_yocto": "1",
+    "signed_tx": "0x02f87183aa36a780843b9aca00847735940082ea6094000000000000000000000000000000000000ae6180848456cb59c080a0fee7c979b20fb3caadf134a35ef5647a1e436b14b78380273a0017567ef20894a002195a1c6f26f45b982d9ee35533863c9cd295f1d3f673c7f30080dcdcc56e71",
+    "signed_tx_hash": "0x6e6706a6ead3dfe3c64cf029f8a9ada6107bf856ec699d761fd3b52e4f17b9dc",
+    "error": null,
+    "resolved_at_block": "277997777"
+  },
+  "timings": {
+    "requestToSignedMs": 8249
+  },
+  "broadcast": {
+    "done": false,
+    "reason": "AEGIS_BROADCAST not set"
+  },
+  "finishedAt": "2026-11-16T20:01:45.167Z",
+  "workflowRun": "https://github.com/g4stein/aegis-crew/actions/runs/43944959335",
+  "commit": "46903f2",
+  "wasmSha256": "564a6bacb6adf141fcc7f7905ba43aacf9343fbf26d614d529f4aa714784b7f2"
+}

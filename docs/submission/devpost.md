@@ -29,6 +29,8 @@ AEGIS CREW is one pipeline built from four parts that were never designed to mee
 3. **Aegis Guard (NEAR contract, Rust)** is the only way the Sentinel can reach a signer. The Sentinel's key may call `request_pause(contract_id, breach_id)` and nothing else. The guard builds the `pause()` transaction itself, runs 13 ordered checks (allowlist, target, chain, selector, zero value, fee caps, quote freshness, rate limit, no duplicate or in-flight request, balance), pays the signing deposit, and asks NEAR Chain Signatures to sign.
 4. **NEAR Chain Signatures** signs the Ethereum transaction through MPC. No private key for the target chain exists anywhere: not in the bot, the browser, or an agent's context.
 
+**Verified on NEAR testnet** ([run](https://github.com/g4stein/aegis-crew/actions/runs/43944959335)): the guard account has 0 access keys, the Sentinel's only key is a function-call key for `request_pause`, and a real MPC signature for `pause()` came back [8.2 s after the request](https://testnet.nearblocks.io/txns/BLKPWfAZXpGzSX3NxSgbHdmghQjnqNXKKM61ugyEemdN). The signer recovers to the MPC-derived address, and the guard refused a non-Sentinel caller, a replayed breach, and the Sentinel key calling an owner method.
+
 A stolen Sentinel key can, at worst, pause an allowlisted contract, slowly.
 
 The live demo runs the whole pipeline in the browser: the same runtime loop, mock chain, and conformance-tested guard mirror as the Node runtime, with no server and no keys.
@@ -68,14 +70,14 @@ Spec-driven development pays off most where mistakes are expensive. Writing the 
 
 ## What's next for AEGIS CREW
 
-- Run the testnet proof workflow (scripted in `.github/workflows/testnet-proof.yml`) and publish the explorer links.
+- Broadcast the signed `pause()` on Sepolia against a real pausable token (the workflow already supports it), then live EVM adapters (task 6).
 - Live EVM adapters (task 6), then a Sepolia end-to-end with a real pausable token (task 11).
 - File the `omni-transaction` issue and PR.
 
 ## Honest limitations
 
-- The demo chain is a mock. The guard is enforced by its TypeScript mirror, which is proven equivalent to the Rust contract by conformance vectors.
-- The Rust contract is unit-tested in near-sdk's mocked blockchain and builds to wasm. Its testnet deployment is scripted but has not run yet.
+- The demo chain is a mock. There, the guard is enforced by its TypeScript mirror, which is proven equivalent to the Rust contract by conformance vectors.
+- The dashboard demo uses a mock chain; the guard there is the TypeScript mirror. The Rust contract itself is verified on NEAR testnet, but its signed `pause()` hasn't been broadcast to an EVM chain yet, and the fee oracle is still the owner account.
 
 ---
 
@@ -107,6 +109,7 @@ The Crew is deliberately *not* in the 500 ms path. An LLM heartbeat can't meet t
 | Mutations caught | 36 of 36 (14 + 10 + 12) | README, Mutation testing |
 | Encoding vectors | 310 | `tests/vectors/eip1559-pause.json` |
 | Leading-zero rate | 1 − (255/256)² ≈ 0.78% ≈ 1 in 128 | arithmetic |
-| Guard wasm | 264,188 bytes (cargo-near 0.23, Rust 1.86, wasm-opt) | CI artifact `aegis-guard-wasm` |
+| Guard wasm | about 264 KB (cargo-near 0.23, Rust 1.86); deployed sha256 `564a6bac…84b7f2` | `.kiro/artifacts/testnet-proof.json` |
+| Testnet proof | keyless guard, `request_pause`-only Sentinel key, MPC signature in 8.2 s, signer = derived address, 3 refusals | run 43944959335, `.kiro/artifacts/testnet-proof.json` |
 
-Do not use: "billions in legacy contracts" or "$100B+" (no source), "runnable by a judge in minutes" for the Forge (it needs a clone and `npm install`; the Vercel view is instant), or "deployed on testnet" until the proof workflow has run green.
+Do not use: "billions in legacy contracts" or "$100B+" (no source), "runnable by a judge in minutes" for the Forge (it needs a clone and `npm install`; the Vercel view is instant), "deployed on mainnet", or "pauses Ethereum contracts today" (the signed tx is verified, not broadcast).

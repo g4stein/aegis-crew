@@ -50,7 +50,11 @@ That's the worst kind of bug: it passes every test you write by hand and fails i
 
 Judges click links, so the Vercel deploy had to work with no server. The runtime loop was already environment-neutral behind a `ChainStateClient` port, so the browser runs the *same* loop, mock chain, and guard mirror as the Node runtime. It even hashes the bundled Forge file, and the hash matches the server's. A test walks the bundle's import graph to prove it never reaches Node-only code or anything near a key.
 
-What's still mock: the chain. The guard's TypeScript mirror is proven equivalent to the Rust contract by vectors the contract generates. The testnet deployment is scripted as a GitHub Actions workflow and is the next step.
+What's still mock: the dashboard's chain. The guard's TypeScript mirror is proven equivalent to the Rust contract by vectors the contract generates.
+
+## Then I ran it on a real network
+
+A GitHub Actions workflow deploys the Rust guard to NEAR testnet on fresh accounts. The guard account has no access keys at all, and the Sentinel account's only key is a function-call key for `request_pause`. The first run with a real MPC signature failed: my guard rejected a valid signature. I had assumed the parity in the signature point's prefix equals `recovery_id`, but the MPC network normalizes `s`, which flips it. Every mocked test was built on the same wrong assumption, so they all passed. After the fix, [the next run](https://github.com/g4stein/aegis-crew/actions/runs/43944959335) went through: a signature for `pause()` came back 8.2 s after the request, its signer recovered to the MPC-derived address, and the guard refused a non-Sentinel caller, a replayed breach, and the Sentinel key calling an owner method. That bug is now a regression test that replays the real signature through `ecrecover`.
 
 ## Takeaways
 
