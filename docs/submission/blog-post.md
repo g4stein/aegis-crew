@@ -44,7 +44,7 @@ The hook I'd recommend to anyone is `pbt-guard`: before any `git commit` that to
 
 My favorite finding. `omni-transaction` 0.5.0, NEAR's multi-chain transaction builder, appends signature `r` and `s` to the RLP stream as raw 32-byte strings. RLP integers must not have leading zeros. When `r` or `s` starts with `0x00` (probability `1 − (255/256)² ≈ 1/128`), the transaction is non-canonical, and go-ethereum rejects it with `rlp: non-canonical integer`.
 
-That's the worst kind of bug: it passes every test you write by hand and fails in production about once a week. The fix is three lines. The guard strips leading zeros, 310 cross-language vectors pin the bytes, and the mock MPC *always* returns an `r` with a leading zero so the safe path runs on every demo. The issue write-up is in the repo under `docs/upstream/`.
+That's the worst kind of bug: it passes every test you write by hand and fails in production about once a week. The fix is three lines. The guard strips leading zeros, 310 cross-language vectors pin the bytes, and the mock MPC *always* returns an `r` with a leading zero so the safe path runs on every demo. I also wrote the fix for the library itself, with a test that checks the bytes against alloy, as a pull request to `near/omni-transaction-rs` (files under `docs/upstream/`).
 
 ## Making the demo honest
 

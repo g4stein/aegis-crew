@@ -30,7 +30,7 @@ AEGIS CREW reads a dead 2019 smart contract, writes its spec, and guards it with
 |---|---|---|
 | "Billions sit in legacy contracts", "$100B+" | "Old contracts still hold funds, and many have no one left who will touch them" | No sourced figure yet; add one only with a citation |
 | "guard: 7 checks" | 13 checks | `CHECKS` in `aegis-guard/src/lib.rs` |
-| "a publishable bug in NEAR's library" | "`omni-transaction` 0.5.0 emits non-canonical RLP about 1 in 128 signatures; go-ethereum rejects it. Issue: <link once filed>" | `docs/upstream/omni-transaction-leading-zero.md` |
+| "a publishable bug in NEAR's library" | "`omni-transaction` 0.5.0 emits non-canonical RLP about 1 in 128 signatures; go-ethereum rejects it. Fix PR: <link once opened>" | `docs/upstream/omni-transaction-leading-zero.md` |
 | "runnable by a judge in minutes" | "The Vercel demo runs in the browser instantly; the Forge needs a clone and `npm install`" | README |
 | "pauses Ethereum contracts today" | "the guard is verified on NEAR testnet and produces a valid signed `pause()`; broadcasting to Sepolia is next" | `.kiro/artifacts/testnet-proof.json` |
 | "Kiro Crew runs the swarm" | "the Crew is configured (`crew.yaml`, `install.sh`)", until you've run it and captured a heartbeat | task 7.3 |
@@ -44,12 +44,12 @@ Done in the repo:
 - [x] Working URL with no `[ERR]`: live-mock runs in the tab (commit `7cbea90`)
 - [x] CI green: typecheck, PBT, e2e, UI audit, build, Forge reproducibility, Rust tests, wasm build
 - [x] Testnet proof green ([run 43944959335](https://github.com/g4stein/aegis-crew/actions/runs/43944959335)): keyless guard, restricted Sentinel key, real MPC signature in 8.2 s, signer = derived address, 3 refusals
-- [x] Upstream issue draft, Devpost text, video script, blog draft, social post
+- [x] Upstream fix + test (verified against alloy), Devpost text, video script, blog draft, social post
 
 Needs you:
 
 - [ ] **Redeploy Vercel** from `main` and open `/?source=live-mock`. Check that the masthead says `LIVE-MOCK · IN-TAB` and the bulletin reaches "legacy-vault is paused."
-- [ ] **File the upstream issue** from `docs/upstream/omni-transaction-leading-zero.md` under your GitHub account, then replace "<link once filed>".
+- [ ] **Open the upstream PR** (`near/omni-transaction-rs` has Issues off): fork, paste `docs/upstream/omni-transaction-fix/evm_transaction.rs`, open a PR with `pr-body.md`; then replace "<link once opened>".
 - [ ] **Kiro Crew:** run `scripts/crew/install.sh` with the `kirocrew` CLI and save one heartbeat log or screenshot to `.kiro/artifacts/`. This makes the Best Kiro Crew App entry evidence-backed.
 - [ ] **Record the video** (`video-script.md`), upload it to YouTube as public, with no copyrighted music.
 - [ ] **Publish the blog** (`blog-post.md`) and the **social post** (`social-thread.md`, must start with `#KiroweenHackathon26`).

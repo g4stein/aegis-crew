@@ -1,65 +1,26 @@
-# Upstream issue draft: `near/omni-transaction-rs`
+# Upstream fix: `near/omni-transaction-rs` (pull request)
 
-File at: https://github.com/near/omni-transaction-rs/issues/new
+`near/omni-transaction-rs` has GitHub Issues turned off, so this goes upstream as a pull request with the fix and a test.
 
-Before filing, search the repo's issues for "canonical" and "leading zero" to make sure it's new. On 2026-11-16, none of the 50 most recent issues (open or closed) had either term in the title, and `build_with_signature` on `main` still appends `r`/`s` unchanged.
+**PR:** _link once opened_
 
----
+## Files
 
-**Title:** EVM `build_with_signature` encodes 32-byte `r`/`s` with leading zeros, producing non-canonical RLP (~1 in 128 MPC signatures)
+| File | Use |
+|---|---|
+| [`omni-transaction-fix/evm_transaction.rs`](omni-transaction-fix/evm_transaction.rs) | The complete fixed `src/evm/evm_transaction.rs` (upstream `main` at `70930eb` plus the fix and test). Paste it over the file in your fork. |
+| [`omni-transaction-fix/pr-body.md`](omni-transaction-fix/pr-body.md) | The PR description. |
+| [`omni-transaction-fix/0001-fix-evm-strip-leading-zeros.patch`](omni-transaction-fix/0001-fix-evm-strip-leading-zeros.patch) | The same change as a git patch (`git am`). |
 
-**Body:**
+**PR title:** `fix(evm): strip leading zeros from r and s in build_with_signature`
 
-### Summary
+## What was verified (2026-11-16, rustc 1.100.0)
 
-`EVMTransaction::build_with_signature` appends `signature.r` and `signature.s` to the RLP stream as byte strings, without stripping leading zero bytes:
+- All 11 EVM lib tests pass with the fix, including the new `test_build_with_signature_strips_leading_zeros_in_r_and_s_against_alloy`.
+- With the fix reverted, only the new test fails.
+- The 4 EVM doc tests pass, along with `cargo fmt --check`, `cargo clippy --all-targets -- -D clippy::all -D clippy::nursery` (EVM features), and the wasm32 `cargo check` for `--features evm`.
+- Not run: the bitcoin tests. They depend on `omni-testing-utilities`, which isn't publicly accessible, and this change doesn't touch bitcoin code.
 
-```rust
-// src/evm/evm_transaction.rs (v0.5.0)
-rlp_stream.append(&signature.v);
-rlp_stream.append(&signature.r);
-rlp_stream.append(&signature.s);
-```
+## The bug, briefly
 
-In an EIP-1559 transaction, `r` and `s` are RLP *integers*, which must be minimal (no leading zero bytes). NEAR Chain Signatures returns `r` (the x-coordinate of `big_r`) and `s` as fixed 32-byte values. When either starts with `0x00`, the output is not canonical:
-
-- go-ethereum rejects it at decode with `rlp: non-canonical integer (leading zero bytes)` (`rlp/decode.go`, `ErrCanonInt`), so `eth_sendRawTransaction` fails.
-- Clients that decode leniently compute a different transaction hash from the one the canonical encoding would have, so the hash a relayer tracks does not match the one the chain reports.
-
-For uniformly random scalars, the chance that `r` or `s` starts with a zero byte is `1 - (255/256)^2 ≈ 0.78%`, or about 1 in 128 signatures. A relayer that always passes the MPC's 32-byte values will fail intermittently, which is hard to diagnose.
-
-### Reproduction
-
-```rust
-use omni_transaction::evm::types::Signature;
-// tx: any EVMTransaction built with TransactionBuilder::new::<EVM>()
-let mut r = [0x11u8; 32];
-r[0] = 0x00; // as returned by MPC about 1 time in 256
-let s = [0x22u8; 32];
-
-let raw = tx.build_with_signature(&Signature { v: 1, r: r.to_vec(), s: s.to_vec() });
-let canonical = tx.build_with_signature(&Signature { v: 1, r: r[1..].to_vec(), s: s.to_vec() });
-assert_eq!(raw.len(), canonical.len() + 1); // raw carries a non-canonical 33-byte r item
-```
-
-A runnable version is the `leading_zero_signature_components_are_stripped` test in [`aegis-crew/aegis-sentinel/contracts/pause-tx/src/lib.rs`](https://github.com/g4stein/aegis-crew/blob/main/aegis-sentinel/contracts/pause-tx/src/lib.rs). The same repo pins 310 cross-language vectors (Rust ↔ TypeScript, byte for byte), including leading-zero cases, in [`tests/vectors/eip1559-pause.json`](https://github.com/g4stein/aegis-crew/blob/main/aegis-sentinel/tests/vectors/eip1559-pause.json).
-
-### Suggested fix
-
-Normalize inside `build_with_signature` so callers can't get it wrong:
-
-```rust
-fn trim_leading_zeros(b: &[u8]) -> &[u8] {
-    let i = b.iter().position(|x| *x != 0).unwrap_or(b.len());
-    &b[i..]
-}
-rlp_stream.append(&trim_leading_zeros(&signature.r));
-rlp_stream.append(&trim_leading_zeros(&signature.s));
-```
-
-Alternatively, change `Signature.r`/`s` to a fixed `[u8; 32]` (or `U256`) and encode them as integers, or document that callers must pass minimal big-endian bytes. A regression test with `r[0] == 0` would lock it in. I'm happy to open a PR with the fix and test.
-
-### Environment
-
-- `omni-transaction` 0.5.0, features `evm`
-- Signatures from `v1.signer-prod.testnet` (`domain_id` 0, secp256k1)
+`build_with_signature` appended `r` and `s` as raw byte strings. RLP integers must be minimal, so whenever a 32-byte `r` or `s` starts with `0x00` (about 1 in 128 signatures), go-ethereum rejects the transaction with `rlp: non-canonical integer (leading zero bytes)`. AEGIS CREW works around it in `aegis-sentinel/contracts/pause-tx/src/lib.rs` (`canonical_int`) and pins 310 vectors in `aegis-sentinel/tests/vectors/eip1559-pause.json`.

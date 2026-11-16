@@ -53,7 +53,7 @@ The hook-to-agent chain caught a real bug on its first run: creating the vault f
 ## Challenges we ran into
 
 - **The signing deposit.** NEAR's MPC `sign` call needs an attached deposit, and NEAR function-call keys can't attach deposits. A restricted bot key could never sign directly. That one constraint is why the Aegis Guard exists: the guard pays the deposit, and the bot's key can only ask.
-- **A 1-in-128 encoding bug.** `omni-transaction` 0.5.0 (NEAR's transaction builder) appends signature `r` and `s` as raw 32-byte strings. When either starts with a zero byte (about 1 in 128 MPC signatures), the transaction isn't canonical RLP, and go-ethereum rejects it (`rlp: non-canonical integer`). We strip leading zeros, pin 310 Rust-to-TypeScript vectors byte for byte, and force a leading-zero `r` in every mock run so the fix is always exercised. We wrote up the upstream issue (`docs/upstream/`).
+- **A 1-in-128 encoding bug.** `omni-transaction` 0.5.0 (NEAR's transaction builder) appends signature `r` and `s` as raw 32-byte strings. When either starts with a zero byte (about 1 in 128 MPC signatures), the transaction isn't canonical RLP, and go-ethereum rejects it (`rlp: non-canonical integer`). We strip leading zeros, pin 310 Rust-to-TypeScript vectors byte for byte, and force a leading-zero `r` in every mock run so the fix is always exercised. We also wrote the upstream fix with an alloy-checked test, opened as a pull request to `near/omni-transaction-rs` (`docs/upstream/`).
 - **Making property tests honest.** We injected 36 bugs on purpose (14 in the TypeScript cores, 10 in the Rust guard, 12 in its TypeScript mirror). The first round let 3 through, so we strengthened the generators until every one was caught.
 - **A bug only the real network could find.** The first real MPC signature on testnet was rejected by our own guard. We had assumed the parity of the signature point's prefix equals `recovery_id`, but the MPC network normalizes `s`, which flips it. Every mocked test had built signatures under the same wrong assumption, so they all passed. The fix takes parity from `recovery_id`, and a regression test replays that exact testnet signature through `ecrecover`.
 - **Keeping the browser keyless.** The demo runs the runtime in the tab, so a test walks the bundle's import graph and fails if it ever reaches the Node host, the chain adapters, the MCP server, or Node-only packages.
@@ -72,7 +72,7 @@ Spec-driven development pays off most where mistakes are expensive. Writing the 
 
 - Broadcast the signed `pause()` on Sepolia against a real pausable token (the workflow already supports it), then live EVM adapters (task 6).
 - Live EVM adapters (task 6), then a Sepolia end-to-end with a real pausable token (task 11).
-- File the `omni-transaction` issue and PR.
+- Get the `omni-transaction` fix merged upstream (pull request with an alloy-checked test).
 
 ## Honest limitations
 
