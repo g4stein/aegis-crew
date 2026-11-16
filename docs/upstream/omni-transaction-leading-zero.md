@@ -2,7 +2,7 @@
 
 `near/omni-transaction-rs` has GitHub Issues turned off, so this goes upstream as a pull request with the fix and a test.
 
-**PR:** _link once opened_
+**PR:** [near/omni-transaction-rs#5](https://github.com/near/omni-transaction-rs/pull/5) (opened 2026-11-17; awaiting maintainer review and CI approval)
 
 ## Files
 
