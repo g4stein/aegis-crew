@@ -1,0 +1,89 @@
+# AEGIS CREW: multi-agent swarm manifest
+#
+# This file is a MANIFEST. Kiro and Kiro Crew do not load it automatically.
+# It records how the swarm is wired so the setup is reviewable in git and can
+# be reproduced with `scripts/crew/install.sh`.
+#
+# What Kiro actually loads:
+#   Agent definitions   .kiro/agents/aegis-{archivist,verifier,sentinel}.md
+#   Hooks               .kiro/hooks/*.json
+#   MCP servers         .kiro/settings/mcp.json
+#   Steering            .kiro/steering/*.md
+#   Crew schedules      ~/.kiro/crew/ (registered by scripts/crew/install.sh)
+#
+# Docs: https://kiro.dev/docs/crew/features/cron.md
+#       https://kiro.dev/docs/custom-agents/configuration-reference.md
+
+version: 1
+name: aegis-crew
+workspace: .
+
+agents:
+  - id: archivist
+    definition: .kiro/agents/aegis-archivist.md
+    role: Ingest legacy Solidity, emit JSON AST map and modernization spec.
+    requirements: ["3.1-3.14"]
+    triggers:
+      - kind: hook                       # IDE / CLI V3: fires when the agent creates the file
+        hook: .kiro/hooks/archivist-intake.json
+        event: PostFileCreate
+        match: "aegis-forge/input/*.sol"
+      - kind: crew-schedule              # all surfaces: catches files dropped manually or via git
+        job: aegis-archivist-intake
+        every_seconds: 120
+        prompt: >
+          Check aegis-forge/input/ for .sol files with no matching
+          .kiro/specs/<contract>-modernization/ folder. If any exist, ingest them.
+          If none, reply "NO NEW INPUT" and stop.
+    hands_off_to: verifier
+
+  - id: verifier
+    definition: .kiro/agents/aegis-verifier.md
+    role: Run PBT against pure cores and modernized code; report per invariant.
+    requirements: ["1.6-1.8", "2.15-2.16", "3.12-3.14"]
+    triggers:
+      - kind: handoff
+        from: archivist
+      - kind: hook                       # commit gate (deterministic, no LLM)
+        hook: .kiro/hooks/pbt-guard.json
+        event: PreToolUse
+        match: "git commit"
+    command: "npx vitest run tests/pbt"
+    can_write: false
+
+  - id: sentinel
+    definition: .kiro/agents/aegis-sentinel.md
+    role: Supervisory watch over live invariant state; confirm or escalate mitigations.
+    requirements: ["2.1-2.17"]
+    persistent: true
+    triggers:
+      - kind: crew-schedule
+        job: aegis-sentinel-heartbeat
+        every_seconds: 60
+        persistent_session: true
+        prompt: "Run one Sentinel heartbeat check."
+    mcp:
+      server: chain-state                # defined in .kiro/settings/mcp.json
+      tools:
+        - get_contract_invariants
+        - get_mitigation_status
+        - broadcast_mitigation_payload
+    can_write: false
+    can_shell: false
+
+# Latency split for Requirement 2.1 (500ms). An LLM heartbeat cannot meet it.
+mitigation_path:
+  fast:                                  # the 500ms path, no LLM involved
+    owner: aegis-sentinel runtime (src/core + src/adapters/chain)
+    flow: [read_state, evaluate_invariants, format_pause_payload, check_allowlist, submit_sign_request]
+    budget_ms: 500
+  supervisory:                           # this crew's Sentinel agent
+    owner: agents.sentinel
+    interval_seconds: 60
+    duties: [catch_missed_breach, detect_stalled_signature, confirm_contained]
+
+guardrails:
+  - Only the Sentinel agent can reach broadcast_mitigation_payload.
+  - broadcast_mitigation_payload takes contract_id and breach_id only; the server builds the pause() payload.
+  - Signer key (AEGIS_SIGNER_KEY) lives only in the Sentinel runtime process; the MCP server proxies to the runtime and holds no key. Never in agent context.
+  - Archivist and Verifier have no MCP access (includeMcpJson false).

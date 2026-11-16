@@ -1,0 +1,22 @@
+{
+  "name": "aegis-forge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc",
+    "test:pbt": "vitest run tests/pbt"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/semver": "^7.8.0",
+    "ajv": "^8.20.0",
+    "fast-check": "^4.10.2",
+    "semver": "^7.8.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "@solidity-parser/parser": "^0.20.2"
+  }
+}

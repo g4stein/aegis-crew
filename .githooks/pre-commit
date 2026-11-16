@@ -1,0 +1,4 @@
+#!/bin/sh
+# Git pre-commit hook. Activated by `npm install` (the root `prepare` script sets
+# core.hooksPath to .githooks). Covers commits made outside Kiro.
+exec node "$(git rev-parse --show-toplevel)/scripts/hooks/pbt-guard.mjs" --git

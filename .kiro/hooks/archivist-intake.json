@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "archivist-intake",
+      "trigger": "PostFileCreate",
+      "description": "Starts the Archivist when the agent creates a .sol file in aegis-forge/input/. PostFileCreate runs in the IDE and CLI V3 only; on Web and for files dropped manually, the Crew schedule in .kiro/crew.yaml covers intake.",
+      "matcher": "aegis-forge/input/.*\\.sol$",
+      "action": {
+        "type": "agent",
+        "prompt": "A legacy Solidity file was added to aegis-forge/input/. Delegate to the `aegis-archivist` custom agent as a subagent and have it ingest the new file per Requirement 3 in .kiro/specs/aegis-protocol/requirements.md. When it finishes, delegate to `aegis-verifier` to run the PBT suite."
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+[package]
+name = "aegis-pause-tx"
+version = "0.1.0"
+edition = "2021"
+description = "Builds the EIP-1559 pause() transaction that the Aegis Guard contract asks NEAR Chain Signatures to sign. Emits cross-language test vectors for the Sentinel's TypeScript encoder."
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "vectors"
+path = "src/bin/vectors.rs"
+
+[dependencies]
+omni-transaction = { version = "=0.5.0", default-features = false, features = ["evm"] }
+sha3 = "0.10"
+hex = "0.4"

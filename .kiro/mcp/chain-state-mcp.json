@@ -1,0 +1,212 @@
+{
+  "$comment": "Tool schema for the chain-state MCP server. Kiro does not load this file directly; the server is registered in .kiro/settings/mcp.json and reads this file via AEGIS_TOOL_SCHEMA. Each entry under `tools` is an MCP Tool definition (name, description, inputSchema, outputSchema, annotations) as returned by tools/list.",
+  "server": {
+    "name": "chain-state",
+    "version": "0.1.0",
+    "mode": "mock",
+    "requirements": ["2.1-2.17"]
+  },
+  "tools": [
+    {
+      "name": "get_contract_invariants",
+      "title": "Get contract invariants",
+      "description": "Returns the live invariant status for guarded contracts: each registered invariant, whether it holds, the observed values, the state read time, and the current mitigation state. Read-only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "contract_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,64}$",
+            "description": "Guarded-contract ID from the allowlist. Omit to return all guarded contracts."
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["read_at_ms", "contracts"],
+        "properties": {
+          "read_at_ms": { "type": "integer", "description": "Unix ms when chain state was read." },
+          "contracts": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/ContractStatus" }
+          }
+        },
+        "$defs": {
+          "ContractStatus": {
+            "type": "object",
+            "required": ["contract_id", "chain", "address", "block_number", "paused", "invariants", "mitigation"],
+            "properties": {
+              "contract_id": { "type": "string" },
+              "chain": { "type": "string", "description": "CAIP-2 chain ID, for example eip155:11155111 (Sepolia)." },
+              "address": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+              "block_number": { "type": "string", "pattern": "^[0-9]+$" },
+              "paused": { "type": "boolean" },
+              "invariants": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "requirement", "status", "expected", "observed"],
+                  "properties": {
+                    "id": { "type": "string", "examples": ["balance-conservation"] },
+                    "requirement": { "type": "string", "examples": ["1.2"] },
+                    "status": { "enum": ["holding", "breached"] },
+                    "expected": { "type": "string", "pattern": "^[0-9]+$", "description": "Decimal string (bigint), e.g. totalSupply." },
+                    "observed": { "type": "string", "pattern": "^-?[0-9]+$", "description": "Decimal string (bigint), e.g. sum of balances." },
+                    "breach_id": { "type": "string", "description": "Present only when status is breached. Pass to broadcast_mitigation_payload." },
+                    "detected_at_ms": { "type": "integer", "description": "t0 for Requirement 2.1." }
+                  }
+                }
+              },
+              "mitigation": { "$ref": "#/$defs/Mitigation" }
+            }
+          },
+          "Mitigation": {
+            "type": "object",
+            "required": ["state"],
+            "properties": {
+              "state": { "enum": ["none", "pending_signature", "signed", "broadcast", "confirmed", "failed", "refused"] },
+              "mitigation_id": { "type": "string" },
+              "signature_timeout_ms": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "broadcast_mitigation_payload",
+      "title": "Broadcast pause mitigation",
+      "description": "Builds a pause() transaction for a breached guarded contract, requests a signature from NEAR Chain Signatures (MPC contract `sign` method) using the contract's configured derivation path, and broadcasts the signed transaction to the target chain. The caller cannot supply the target address, calldata, or derivation path; the server derives them from the allowlist. Refuses if the contract is not allowlisted, the breach is not current, the contract is already paused, or a mitigation is already in flight.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["contract_id", "breach_id"],
+        "properties": {
+          "contract_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,64}$",
+            "description": "Guarded-contract ID from the allowlist."
+          },
+          "breach_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,128}$",
+            "description": "breach_id from get_contract_invariants. Must match a current, unmitigated breach."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, build and validate the payload and return it unsigned, without calling the MPC signer or broadcasting."
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["status", "contract_id"],
+        "properties": {
+          "status": { "enum": ["submitted", "dry_run", "refused"] },
+          "contract_id": { "type": "string" },
+          "mitigation_id": { "type": "string" },
+          "refusal_reason": {
+            "enum": ["not_allowlisted", "breach_not_current", "already_paused", "mitigation_in_flight", "state_too_old", "signer_unavailable"]
+          },
+          "payload": {
+            "type": "object",
+            "description": "The unsigned transaction the server built.",
+            "properties": {
+              "chain": { "type": "string" },
+              "to": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+              "data": { "const": "0x8456cb59", "description": "pause() selector. Any other calldata is refused (Requirement 2.9)." },
+              "value": { "const": "0" },
+              "nonce": { "type": "string" },
+              "payload_hash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" }
+            }
+          },
+          "sign_request": {
+            "type": "object",
+            "properties": {
+              "mpc_contract": { "type": "string", "examples": ["v1.signer-prod.testnet"] },
+              "derivation_path": { "type": "string" },
+              "near_tx_hash": { "type": "string" }
+            }
+          },
+          "timings_ms": {
+            "type": "object",
+            "description": "Requirement 2.4 timestamps (Unix ms).",
+            "properties": {
+              "t0_detected": { "type": "integer" },
+              "sign_request_submitted": { "type": "integer" },
+              "detect_to_submit": { "type": "integer", "maximum": 500, "description": "Requirement 2.1 budget." }
+            }
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get_mitigation_status",
+      "title": "Get mitigation status",
+      "description": "Returns the progress of a mitigation: signature receipt, broadcast, confirmation, and the Requirement 2.4 timestamps. Read-only.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["mitigation_id"],
+        "properties": {
+          "mitigation_id": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,128}$" }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["mitigation_id", "state"],
+        "properties": {
+          "mitigation_id": { "type": "string" },
+          "contract_id": { "type": "string" },
+          "state": { "enum": ["pending_signature", "signed", "broadcast", "confirmed", "failed"] },
+          "target_tx_hash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+          "error": { "type": "string" },
+          "timings_ms": {
+            "type": "object",
+            "properties": {
+              "t0_detected": { "type": "integer" },
+              "sign_request_submitted": { "type": "integer" },
+              "signature_received": { "type": "integer" },
+              "broadcast": { "type": "integer" },
+              "confirmed": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    }
+  ],
+  "mock": {
+    "$comment": "Fixture used when AEGIS_CHAIN_MODE=mock. No network calls, no signing.",
+    "allowlist": [
+      {
+        "contract_id": "legacy-token",
+        "chain": "eip155:11155111",
+        "address": "0x000000000000000000000000000000000000ae61",
+        "derivation_path": "aegis/legacy-token/pause"
+      }
+    ],
+    "scenarios": {
+      "holding": { "contract_id": "legacy-token", "totalSupply": "1000000", "sumBalances": "1000000" },
+      "breach": { "contract_id": "legacy-token", "totalSupply": "1000000", "sumBalances": "1500000", "breach_id": "brk_demo_0001" }
+    }
+  }
+}

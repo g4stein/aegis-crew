@@ -1,0 +1,32 @@
+/* Design tokens. Source of truth: .kiro/steering/ui-manifesto.md
+   These five colors are the only colors in the Sentinel. */
+:root {
+  --obsidian: #0A0A0A;   /* page background */
+  --off-white: #F0F0F0;  /* text, borders, rules */
+  --graphite: #1A1A1A;   /* alternate row, inactive cell fill */
+  --ash: #8A8A8A;        /* secondary text, 14px and up only */
+  --acid: #CCFF00;       /* CRITICAL ALERTS ONLY */
+
+  --font-data: "JetBrains Mono", ui-monospace, monospace;
+  --font-head: "Playfair Display", "Times New Roman", serif;
+
+  --rule: 1px solid var(--off-white);
+
+  /* 4px spacing base */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 16px;
+  --s4: 24px;
+  --s5: 32px;
+
+  --t-label: 11px;
+  --t-data: 14px;
+  --t-data-lg: 18px;
+  --t-section: 32px;
+  --t-headline: clamp(40px, 6vw, 88px);
+  --t-masthead: clamp(56px, 11vw, 168px);
+
+  --tracking-label: 0.08em;
+  --motion: 0ms;            /* default: instant */
+  --motion-max: 80ms;       /* hard ceiling, linear or steps() only */
+}

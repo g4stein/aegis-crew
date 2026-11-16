@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-crew.dev/schema/ast-map.schema.json",
+  "title": "Aegis Forge AST map",
+  "description": "Structured map of a legacy Solidity source file (Requirement 3.2, 3.3).",
+  "type": "object",
+  "required": ["schemaVersion", "source", "contracts", "risks"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "source": {
+      "type": "object",
+      "required": ["name", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "contracts": { "type": "array", "items": { "$ref": "#/$defs/contract" } },
+    "risks": { "type": "array", "items": { "$ref": "#/$defs/risk" } }
+  },
+  "$defs": {
+    "loc": {
+      "type": "object",
+      "required": ["line", "column"],
+      "additionalProperties": false,
+      "properties": {
+        "line": { "type": "integer", "minimum": 0 },
+        "column": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "param": {
+      "type": "object",
+      "required": ["name", "type"],
+      "additionalProperties": false,
+      "properties": { "name": { "type": "string" }, "type": { "type": "string" } }
+    },
+    "contract": {
+      "type": "object",
+      "required": ["name", "kind", "pragma", "inherits", "stateVariables", "functions", "events", "modifiers"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["contract", "abstract", "interface", "library"] },
+        "pragma": { "type": "array", "items": { "type": "string" } },
+        "inherits": { "type": "array", "items": { "type": "string" } },
+        "stateVariables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "visibility", "constant", "immutable"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "visibility": { "enum": ["public", "internal", "private"] },
+              "constant": { "type": "boolean" },
+              "immutable": { "type": "boolean" }
+            }
+          }
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "kind", "visibility", "mutability", "modifiers", "parameters", "returns", "loc"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "kind": { "enum": ["function", "constructor", "fallback", "receive"] },
+              "visibility": { "enum": ["public", "external", "internal", "private"] },
+              "mutability": { "enum": ["nonpayable", "payable", "view", "pure", "constant"] },
+              "modifiers": { "type": "array", "items": { "type": "string" } },
+              "parameters": { "type": "array", "items": { "$ref": "#/$defs/param" } },
+              "returns": { "type": "array", "items": { "$ref": "#/$defs/param" } },
+              "loc": { "$ref": "#/$defs/loc" }
+            }
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "parameters"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "parameters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "type", "indexed"],
+                  "additionalProperties": false,
+                  "properties": { "name": { "type": "string" }, "type": { "type": "string" }, "indexed": { "type": "boolean" } }
+                }
+              }
+            }
+          }
+        },
+        "modifiers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "parameters"],
+            "additionalProperties": false,
+            "properties": { "name": { "type": "string" }, "parameters": { "type": "array", "items": { "$ref": "#/$defs/param" } } }
+          }
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "required": ["id", "severity", "confidence", "contract", "loc", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "enum": ["legacy-pragma", "tx-origin-auth", "unchecked-call", "call-before-write"] },
+        "severity": { "enum": ["high", "medium"] },
+        "confidence": { "enum": ["certain", "heuristic"] },
+        "contract": { "type": "string" },
+        "function": { "type": "string" },
+        "loc": { "$ref": "#/$defs/loc" },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

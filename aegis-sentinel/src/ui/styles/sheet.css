@@ -1,0 +1,70 @@
+/* The sheet: one rigid 12-column CSS Grid with collapsed 1px rules.
+   The container draws the top and left rules; each cell draws its right and bottom rules,
+   so lines never double. gap is always 0.
+
+   Rows (explicit):
+   1 masthead     title 9 | edition 3
+   2 bulletin     headline 9 | controls 3
+   3 contracts    12
+   4 ledger 7     | mitigation 5
+   5 event log    12
+   6 colophon     12 */
+.sheet {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: repeat(6, auto);
+  gap: 0;
+  border-top: var(--rule);
+  border-left: var(--rule);
+  margin: var(--s4);
+}
+
+.cell {
+  grid-column: span var(--span, 12);
+  border-right: var(--rule);
+  border-bottom: var(--rule);
+  padding: var(--s3);
+  min-width: 0;
+}
+
+.cell[data-pad="none"] {
+  padding: 0;
+}
+
+.cell[data-fill="graphite"] {
+  background: var(--graphite);
+}
+
+/* A nested grid inside a cell. Children draw right and bottom rules; the -1px margins
+   lay the last column and row over the parent cell's own rules, so lines never double. */
+.subgrid {
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+  grid-auto-rows: auto;
+  margin-right: -1px;
+  margin-bottom: -1px;
+}
+
+.subgrid > * {
+  border-right: var(--rule);
+  border-bottom: var(--rule);
+  padding: var(--s2) var(--s3);
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .sheet {
+    margin: var(--s2);
+    grid-template-rows: none;
+    grid-auto-rows: auto;
+  }
+
+  .cell {
+    grid-column: 1 / -1;
+  }
+
+  .subgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

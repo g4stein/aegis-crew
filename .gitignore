@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+target/
+
+# Test and coverage artifacts
+coverage/
+.vitest/
+.fast-check/
+
+# Environment and secrets (keys for the Sentinel signer live here, never in git)
+.env
+.env.*
+!.env.example
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+
+# NOTE: .kiro/ is intentionally tracked. Do not add it here.

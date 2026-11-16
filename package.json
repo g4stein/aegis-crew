@@ -1,0 +1,16 @@
+{
+  "name": "aegis-crew",
+  "private": true,
+  "description": "AEGIS CREW: legacy contract modernization (Forge) and live invariant monitoring (Sentinel). Kiroween 2026, Skeleton Crew.",
+  "workspaces": [
+    "aegis-forge",
+    "aegis-sentinel"
+  ],
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
+    "audit:ui": "node scripts/hooks/ui-audit.mjs --all"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

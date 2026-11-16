@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "spec-audit",
+      "trigger": "PostToolUse",
+      "description": "After the agent writes a file, audits aegis-sentinel UI files (.tsx/.jsx/.css/.html, src/ui/**/*.ts) against .kiro/steering/ui-manifesto.md: gradients, blur/glass, soft shadows, rounded corners, Inter/system fonts, icon packs, eased motion, non-token colors. Violations are reported to the agent on stderr. PostToolUse runs on Web, IDE, and CLI.",
+      "matcher": "write",
+      "action": {
+        "type": "command",
+        "command": "node scripts/hooks/ui-audit.mjs --kiro",
+        "timeout": 30
+      }
+    }
+  ]
+}
