@@ -1,0 +1,83 @@
+name: ci
+
+# Every push and PR: the same gates as the local pre-commit hook, from a clean checkout,
+# plus the Aegis Guard contract tests and its wasm build (task 5.3, build half).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: typecheck, PBT, e2e, UI audit, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run -w aegis-sentinel typecheck
+      - run: npm run -w aegis-sentinel test:pbt
+      - run: npm run -w aegis-forge test:pbt
+      - run: npm run -w aegis-sentinel test:e2e
+      - run: npm run audit:ui
+      - run: npm run build
+      - name: Forge reproduces its committed output
+        run: |
+          npx aegis-forge ingest aegis-forge/input/legacy-vault.sol --force
+          git diff --exit-code -- aegis-forge/output .kiro/specs/legacy-vault-modernization
+
+  rust:
+    name: guard + pause-tx tests, wasm build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RUST_TOOLCHAIN: "1.92.0"
+      # cargo-near refuses rustc > 1.86 for near-sdk 5.27 (no min_protocol_version 84 metadata):
+      # rustc 1.87+ emits bulk-memory opcodes that the pre-2.12 NEAR VM rejects.
+      WASM_TOOLCHAIN: "1.86.0"
+      CARGO_NEAR_VERSION: "0.23.0"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup toolchain install "$WASM_TOOLCHAIN" --profile minimal --target wasm32-unknown-unknown
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            aegis-sentinel/contracts/aegis-guard
+            aegis-sentinel/contracts/pause-tx
+      - name: pause-tx tests (omni-transaction encoding)
+        working-directory: aegis-sentinel/contracts/pause-tx
+        run: cargo test --release --locked
+      - name: Aegis Guard unit tests (near-sdk mocked blockchain)
+        working-directory: aegis-sentinel/contracts/aegis-guard
+        run: cargo test --locked -- --test-threads=1
+      - name: Install cargo-near
+        run: curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/near/cargo-near/releases/download/cargo-near-v${CARGO_NEAR_VERSION}/cargo-near-installer.sh" | sh
+      - name: Build aegis_guard.wasm
+        env:
+          RUSTUP_TOOLCHAIN: ${{ env.WASM_TOOLCHAIN }}
+        run: |
+          cargo near build non-reproducible-wasm --no-abi --locked \
+            --manifest-path aegis-sentinel/contracts/aegis-guard/Cargo.toml --out-dir "$RUNNER_TEMP/wasm"
+          ls -l "$RUNNER_TEMP/wasm"
+          sha256sum "$RUNNER_TEMP/wasm/aegis_guard.wasm" | tee "$RUNNER_TEMP/wasm/aegis_guard.wasm.sha256"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: aegis-guard-wasm
+          path: ${{ runner.temp }}/wasm/
+          if-no-files-found: error

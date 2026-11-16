@@ -1,0 +1,87 @@
+name: testnet-proof
+
+# Manual. Builds the Aegis Guard, deploys it to NEAR testnet on fresh accounts, and records one
+# real keyless pause signature from v1.signer-prod.testnet (scripts/testnet/proof.mjs).
+#
+# Repository secrets (Settings -> Secrets and variables -> Actions):
+#   NEAR_TESTNET_ACCOUNT_ID    a funded testnet account, e.g. you.testnet (about 5 NEAR)
+#   NEAR_TESTNET_PRIVATE_KEY   its full-access key, "ed25519:..." (used only to create the
+#                              guard and Sentinel sub-accounts and to act as owner/fee oracle)
+#   SEPOLIA_RPC_URL            optional: real nonce and fees, and the optional broadcast
+on:
+  workflow_dispatch:
+    inputs:
+      broadcast:
+        description: "Broadcast the signed pause() to Sepolia (needs SEPOLIA_RPC_URL, a target with code, and gas on the derived address)"
+        type: boolean
+        default: false
+      target_address:
+        description: "Sepolia contract to pause (default: the placeholder in config/guarded.json, which is never broadcast)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testnet-proof
+  cancel-in-progress: false
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RUST_TOOLCHAIN: "1.92.0"
+      # cargo-near refuses rustc > 1.86 for near-sdk 5.27 (no min_protocol_version 84 metadata):
+      # rustc 1.87+ emits bulk-memory opcodes that the pre-2.12 NEAR VM rejects.
+      WASM_TOOLCHAIN: "1.86.0"
+      CARGO_NEAR_VERSION: "0.23.0"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup toolchain install "$WASM_TOOLCHAIN" --profile minimal --target wasm32-unknown-unknown
+          rustup default "$RUST_TOOLCHAIN"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: aegis-sentinel/contracts/aegis-guard
+      - name: Guard unit tests must pass before anything is deployed
+        working-directory: aegis-sentinel/contracts/aegis-guard
+        run: cargo test --locked -- --test-threads=1
+      - name: Install cargo-near
+        run: curl --proto '=https' --tlsv1.2 -LsSf "https://github.com/near/cargo-near/releases/download/cargo-near-v${CARGO_NEAR_VERSION}/cargo-near-installer.sh" | sh
+      - name: Build aegis_guard.wasm
+        env:
+          RUSTUP_TOOLCHAIN: ${{ env.WASM_TOOLCHAIN }}
+        run: |
+          cargo near build non-reproducible-wasm --no-abi --locked \
+            --manifest-path aegis-sentinel/contracts/aegis-guard/Cargo.toml --out-dir "$RUNNER_TEMP/wasm"
+          sha256sum "$RUNNER_TEMP/wasm/aegis_guard.wasm" | tee "$RUNNER_TEMP/wasm/aegis_guard.wasm.sha256"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci --prefix scripts/testnet
+      - name: Read-only check (testnet RPC, MPC derived address)
+        run: node scripts/testnet/proof.mjs --check
+        env:
+          AEGIS_GUARD_WASM: ${{ runner.temp }}/wasm/aegis_guard.wasm
+      - name: Deploy guard and request a keyless pause
+        run: node scripts/testnet/proof.mjs
+        env:
+          NEAR_TESTNET_ACCOUNT_ID: ${{ secrets.NEAR_TESTNET_ACCOUNT_ID }}
+          NEAR_TESTNET_PRIVATE_KEY: ${{ secrets.NEAR_TESTNET_PRIVATE_KEY }}
+          SEPOLIA_RPC_URL: ${{ secrets.SEPOLIA_RPC_URL }}
+          AEGIS_GUARD_WASM: ${{ runner.temp }}/wasm/aegis_guard.wasm
+          AEGIS_TARGET_ADDRESS: ${{ inputs.target_address }}
+          AEGIS_BROADCAST: ${{ inputs.broadcast && '1' || '' }}
+          AEGIS_PROOF_OUT: ${{ runner.temp }}/proof/testnet-proof.json
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: testnet-proof
+          path: |
+            ${{ runner.temp }}/proof/
+            ${{ runner.temp }}/wasm/
+          if-no-files-found: warn

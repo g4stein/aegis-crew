@@ -1,0 +1,16 @@
+{
+  "name": "aegis-testnet-proof",
+  "private": true,
+  "type": "module",
+  "description": "Deploys the Aegis Guard to NEAR testnet and records one real keyless pause signature. Run by .github/workflows/testnet-proof.yml.",
+  "scripts": {
+    "proof": "node proof.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "near-api-js": "7.5.3",
+    "viem": "2.57.20"
+  }
+}

@@ -46,10 +46,12 @@ Each task lists the requirements it covers. Tasks marked `*` are optional for th
     - _Requirements: 2.5, 2.8, 2.9, 2.12_
     - _Requirements: 2.5, 2.7, 2.8, 2.9, 2.10_
   - [ ] 5.3 `near-workspaces` sandbox tests for the guard (needs the `wasm32-unknown-unknown` target; not installable in this sandbox)
+    - Wasm build done: `aegis_guard.wasm` (329 KB, Rust 1.86, `--cfg near`) builds and exports every contract method; `.github/workflows/ci.yml` builds it with cargo-near on every push. Sandbox tests still pending.
     - _Requirements: 2.8, 2.9, 2.16_
   - [x] 5.4 `contracts/pause-tx` (Rust, omni-transaction) emits 310 vectors; Sentinel test matches unsigned bytes, signing hash, and signed bytes for every vector
     - _Requirements: 2.15_
   - [ ] 5.5 Deploy to testnet; add a function-call key for the Sentinel account restricted to `request_pause` and one for the fee oracle restricted to `update_fee_quote`; fund the guard for sign deposits; record the derived EVM address
+    - Scripted, not yet run: `.github/workflows/testnet-proof.yml` + `scripts/testnet/proof.mjs` deploy a keyless guard, create a Sentinel with one `request_pause` function-call key, request a real MPC signature, verify the signer recovers to the derived address, check three refusals, and write `.kiro/artifacts/testnet-proof.json`. Needs repo secrets `NEAR_TESTNET_ACCOUNT_ID` / `NEAR_TESTNET_PRIVATE_KEY`. The fee oracle is still the owner account in this script.
     - _Requirements: 2.5, 2.7_
 
 - [ ] 6. Sentinel chain adapters and runtime
