@@ -8,7 +8,12 @@
   ],
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
+    "postinstall": "patch-package",
     "audit:ui": "node scripts/hooks/ui-audit.mjs --all"
+  },
+  "devDependencies": {
+    "aegis-forge": "file:aegis-forge",
+    "patch-package": "^8.0.1"
   },
   "engines": {
     "node": ">=22"

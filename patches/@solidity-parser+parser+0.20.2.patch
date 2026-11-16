@@ -1,0 +1,14 @@
+diff --git a/node_modules/@solidity-parser/parser/dist/index.cjs.js b/node_modules/@solidity-parser/parser/dist/index.cjs.js
+index 43b180f..57b2e4b 100644
+--- a/node_modules/@solidity-parser/parser/dist/index.cjs.js
++++ b/node_modules/@solidity-parser/parser/dist/index.cjs.js
+@@ -40173,6 +40173,9 @@ function parse(input, options = {}) {
+   parser.addErrorListener(listener);
+   parser.buildParseTrees = true;
+   const sourceUnit = parser.sourceUnit();
++  if (listener.hasErrors() && options.tolerant !== true) {
++    throw new ParserError({ errors: listener.getErrors() });
++  }
+   const astBuilder = new ASTBuilder(options);
+   astBuilder.visit(sourceUnit);
+   const ast = astBuilder.result;

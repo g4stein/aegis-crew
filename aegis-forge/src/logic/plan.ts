@@ -50,7 +50,7 @@ function criteriaFor(c: ContractMap, risks: readonly Risk[], invariants: readonl
   for (const r of mine) {
     const where = r.function ? code(`${c.name}.${r.function}`) : code(c.name);
     if (r.id === 'tx-origin-auth') {
-      out.push({ pattern: 'Unwanted', text: `IF ${where} checks the caller's identity, THEN the ${sys} SHALL use ${code('msg.sender')} and not ${code('tx.origin')}.` });
+      out.push({ pattern: 'Ubiquitous', text: `The ${sys} SHALL authorize callers of ${where} with ${code('msg.sender')} and not ${code('tx.origin')}.` });
     } else if (r.id === 'unchecked-call') {
       out.push({ pattern: 'Unwanted', text: `IF a low-level call in ${where} returns false, THEN the ${sys} SHALL revert.` });
     } else if (r.id === 'call-before-write') {

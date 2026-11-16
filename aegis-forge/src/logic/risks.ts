@@ -62,10 +62,29 @@ function isLowLevelCall(n: AnyNode): n is AnyNode & FunctionCall {
   return m !== undefined && LOW_LEVEL.has(m);
 }
 
-function isExternalValueCall(n: AnyNode): boolean {
+/** The receiver expression of a member call, after stripping `{value: x}` and `.value(x)` wrappers. */
+function callReceiver(call: FunctionCall): AnyNode | undefined {
+  let e: Expression = call.expression;
+  for (;;) {
+    if (e.type === 'NameValueExpression') e = e.expression;
+    else if (e.type === 'FunctionCall' && e.expression.type === 'MemberAccess' && (e.expression.memberName === 'value' || e.expression.memberName === 'gas')) e = e.expression.expression;
+    else break;
+  }
+  return e.type === 'MemberAccess' ? (e.expression as unknown as AnyNode) : undefined;
+}
+
+/**
+ * An external call: a low-level call or `.transfer`, or any member call on a state variable whose
+ * type is a contract or interface (for example `token.transferFrom(...)`).
+ */
+function isExternalCall(n: AnyNode, contractVars: ReadonlySet<string>): boolean {
   if (n.type !== 'FunctionCall') return false;
-  const m = calledMember(n as unknown as FunctionCall);
-  return m !== undefined && EXTERNAL_VALUE_CALLS.has(m);
+  const fc = n as unknown as FunctionCall;
+  const m = calledMember(fc);
+  if (m === undefined) return false;
+  if (EXTERNAL_VALUE_CALLS.has(m)) return true;
+  const recv = callReceiver(fc);
+  return recv?.type === 'Identifier' && contractVars.has(recv.name as string);
 }
 
 function isTxOrigin(n: AnyNode): boolean {
@@ -101,6 +120,28 @@ function stateVarNames(c: ContractDefinition): Set<string> {
   return names;
 }
 
+/** Names of user-defined types that are not contracts or interfaces: structs, enums, libraries. */
+function nonContractTypeNames(unit: SourceUnit): Set<string> {
+  const names = new Set<string>();
+  walk(unit.children, (n) => {
+    if (n.type === 'StructDefinition' || n.type === 'EnumDefinition') names.add(n.name as string);
+    if (n.type === 'ContractDefinition' && n.kind === 'library') names.add(n.name as string);
+  });
+  return names;
+}
+
+/** State variables typed as a contract or interface, e.g. `ERC20 public token;`. */
+function contractTypedVars(c: ContractDefinition, nonContract: ReadonlySet<string>): Set<string> {
+  const names = new Set<string>();
+  for (const n of c.subNodes as ASTNode[]) {
+    if (n.type !== 'StateVariableDeclaration') continue;
+    for (const v of n.variables) {
+      if (v.name && v.typeName?.type === 'UserDefinedTypeName' && !nonContract.has(v.typeName.namePath)) names.add(v.name);
+    }
+  }
+  return names;
+}
+
 function legacyPragmaRisks(unit: SourceUnit, contracts: readonly ContractDefinition[]): Risk[] {
   const pragmas = unit.children.filter((n) => n.type === 'PragmaDirective' && n.name === 'solidity');
   const values = pragmas.map((p) => (p as { value: string }).value);
@@ -117,7 +158,12 @@ function legacyPragmaRisks(unit: SourceUnit, contracts: readonly ContractDefinit
   }));
 }
 
-function bodyRisks(c: ContractDefinition, fn: FunctionDefinition | ModifierDefinition, state: ReadonlySet<string>): Risk[] {
+function bodyRisks(
+  c: ContractDefinition,
+  fn: FunctionDefinition | ModifierDefinition,
+  state: ReadonlySet<string>,
+  contractVars: ReadonlySet<string>,
+): Risk[] {
   const risks: Risk[] = [];
   const fname = fn.type === 'ModifierDefinition' ? fn.name : fn.isConstructor ? 'constructor' : fn.isFallback ? 'fallback' : fn.isReceiveEther ? 'receive' : (fn.name ?? '');
   const base = { contract: c.name, function: fname };
@@ -134,7 +180,7 @@ function bodyRisks(c: ContractDefinition, fn: FunctionDefinition | ModifierDefin
         risks.push({ ...base, id: 'unchecked-call', severity: 'high', confidence: 'heuristic', loc: locOf(n), message: `return value of low-level ${calledMember(n as unknown as FunctionCall)} is discarded in ${c.name}.${fname}` });
       }
     }
-    if (isExternalValueCall(n) && !(ancestors.at(-1)?.type === 'FunctionCall' && isExternalValueCall(ancestors.at(-1)!))) calls.push(startOf(n));
+    if (isExternalCall(n, contractVars) && !(ancestors.at(-1)?.type === 'FunctionCall' && isExternalCall(ancestors.at(-1)!, contractVars))) calls.push(startOf(n));
     if (n.type === 'BinaryOperation' && ASSIGN_OPS.has(n.operator as string)) {
       const name = rootName(n.left as AnyNode);
       if (name && state.has(name)) writes.push({ at: startOf(n), node: n, name });
@@ -159,10 +205,12 @@ function bodyRisks(c: ContractDefinition, fn: FunctionDefinition | ModifierDefin
 export function detectRisks(unit: SourceUnit): Risk[] {
   const contracts = unit.children.filter((n): n is ContractDefinition => n.type === 'ContractDefinition');
   const risks = legacyPragmaRisks(unit, contracts);
+  const nonContract = nonContractTypeNames(unit);
   for (const c of contracts) {
     const state = stateVarNames(c);
+    const contractVars = contractTypedVars(c, nonContract);
     for (const n of c.subNodes as ASTNode[]) {
-      if ((n.type === 'FunctionDefinition' || n.type === 'ModifierDefinition') && n.body) risks.push(...bodyRisks(c, n, state));
+      if ((n.type === 'FunctionDefinition' || n.type === 'ModifierDefinition') && n.body) risks.push(...bodyRisks(c, n, state, contractVars));
     }
   }
   return risks;

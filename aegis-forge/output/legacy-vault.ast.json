@@ -1,0 +1,782 @@
+{
+  "contracts": [
+    {
+      "events": [],
+      "functions": [
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 13
+          },
+          "modifiers": [],
+          "mutability": "pure",
+          "name": "mul",
+          "parameters": [
+            {
+              "name": "a",
+              "type": "uint256"
+            },
+            {
+              "name": "b",
+              "type": "uint256"
+            }
+          ],
+          "returns": [
+            {
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "visibility": "internal"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 22
+          },
+          "modifiers": [],
+          "mutability": "pure",
+          "name": "div",
+          "parameters": [
+            {
+              "name": "a",
+              "type": "uint256"
+            },
+            {
+              "name": "b",
+              "type": "uint256"
+            }
+          ],
+          "returns": [
+            {
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "visibility": "internal"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 27
+          },
+          "modifiers": [],
+          "mutability": "pure",
+          "name": "sub",
+          "parameters": [
+            {
+              "name": "a",
+              "type": "uint256"
+            },
+            {
+              "name": "b",
+              "type": "uint256"
+            }
+          ],
+          "returns": [
+            {
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "visibility": "internal"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 32
+          },
+          "modifiers": [],
+          "mutability": "pure",
+          "name": "add",
+          "parameters": [
+            {
+              "name": "a",
+              "type": "uint256"
+            },
+            {
+              "name": "b",
+              "type": "uint256"
+            }
+          ],
+          "returns": [
+            {
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "visibility": "internal"
+        }
+      ],
+      "inherits": [],
+      "kind": "library",
+      "modifiers": [],
+      "name": "SafeMath",
+      "pragma": [
+        "^0.4.24"
+      ],
+      "stateVariables": []
+    },
+    {
+      "events": [],
+      "functions": [
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 40
+          },
+          "modifiers": [],
+          "mutability": "view",
+          "name": "totalSupply",
+          "parameters": [],
+          "returns": [
+            {
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "visibility": "public"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 41
+          },
+          "modifiers": [],
+          "mutability": "view",
+          "name": "balanceOf",
+          "parameters": [
+            {
+              "name": "who",
+              "type": "address"
+            }
+          ],
+          "returns": [
+            {
+              "name": "",
+              "type": "uint256"
+            }
+          ],
+          "visibility": "public"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 42
+          },
+          "modifiers": [],
+          "mutability": "nonpayable",
+          "name": "transfer",
+          "parameters": [
+            {
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "name": "value",
+              "type": "uint256"
+            }
+          ],
+          "returns": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "visibility": "public"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 43
+          },
+          "modifiers": [],
+          "mutability": "nonpayable",
+          "name": "transferFrom",
+          "parameters": [
+            {
+              "name": "from",
+              "type": "address"
+            },
+            {
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "name": "value",
+              "type": "uint256"
+            }
+          ],
+          "returns": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "visibility": "public"
+        }
+      ],
+      "inherits": [],
+      "kind": "contract",
+      "modifiers": [],
+      "name": "ERC20",
+      "pragma": [
+        "^0.4.24"
+      ],
+      "stateVariables": []
+    },
+    {
+      "events": [
+        {
+          "name": "Deposit",
+          "parameters": [
+            {
+              "indexed": true,
+              "name": "provider",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "name": "ethAmount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "name": "tokenAmount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "name": "shares",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "name": "Withdraw",
+          "parameters": [
+            {
+              "indexed": true,
+              "name": "provider",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "name": "ethAmount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "name": "tokenAmount",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "name": "shares",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "name": "Swap",
+          "parameters": [
+            {
+              "indexed": true,
+              "name": "trader",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "name": "ethIn",
+              "type": "uint256"
+            },
+            {
+              "indexed": false,
+              "name": "tokensOut",
+              "type": "uint256"
+            }
+          ]
+        },
+        {
+          "name": "Transfer",
+          "parameters": [
+            {
+              "indexed": true,
+              "name": "from",
+              "type": "address"
+            },
+            {
+              "indexed": true,
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "indexed": false,
+              "name": "value",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "functions": [
+        {
+          "kind": "constructor",
+          "loc": {
+            "column": 4,
+            "line": 84
+          },
+          "modifiers": [],
+          "mutability": "nonpayable",
+          "name": "constructor",
+          "parameters": [
+            {
+              "name": "_token",
+              "type": "address"
+            },
+            {
+              "name": "_treasury",
+              "type": "address"
+            }
+          ],
+          "returns": [],
+          "visibility": "public"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 90
+          },
+          "modifiers": [
+            "whenNotPaused"
+          ],
+          "mutability": "payable",
+          "name": "deposit",
+          "parameters": [
+            {
+              "name": "maxTokens",
+              "type": "uint256"
+            }
+          ],
+          "returns": [
+            {
+              "name": "shares",
+              "type": "uint256"
+            }
+          ],
+          "visibility": "public"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 112
+          },
+          "modifiers": [],
+          "mutability": "nonpayable",
+          "name": "withdraw",
+          "parameters": [
+            {
+              "name": "shares",
+              "type": "uint256"
+            }
+          ],
+          "returns": [
+            {
+              "name": "ethAmount",
+              "type": "uint256"
+            },
+            {
+              "name": "tokenAmount",
+              "type": "uint256"
+            }
+          ],
+          "visibility": "public"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 130
+          },
+          "modifiers": [
+            "whenNotPaused"
+          ],
+          "mutability": "payable",
+          "name": "swapEthForTokens",
+          "parameters": [
+            {
+              "name": "minTokens",
+              "type": "uint256"
+            }
+          ],
+          "returns": [
+            {
+              "name": "tokensOut",
+              "type": "uint256"
+            }
+          ],
+          "visibility": "public"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 147
+          },
+          "modifiers": [],
+          "mutability": "nonpayable",
+          "name": "transfer",
+          "parameters": [
+            {
+              "name": "to",
+              "type": "address"
+            },
+            {
+              "name": "value",
+              "type": "uint256"
+            }
+          ],
+          "returns": [
+            {
+              "name": "",
+              "type": "bool"
+            }
+          ],
+          "visibility": "public"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 155
+          },
+          "modifiers": [
+            "onlyOwner"
+          ],
+          "mutability": "nonpayable",
+          "name": "sweepProtocolFees",
+          "parameters": [],
+          "returns": [],
+          "visibility": "public"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 161
+          },
+          "modifiers": [
+            "onlyOwner"
+          ],
+          "mutability": "nonpayable",
+          "name": "setTreasury",
+          "parameters": [
+            {
+              "name": "_treasury",
+              "type": "address"
+            }
+          ],
+          "returns": [],
+          "visibility": "public"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 165
+          },
+          "modifiers": [
+            "onlyOwner"
+          ],
+          "mutability": "nonpayable",
+          "name": "setPaused",
+          "parameters": [
+            {
+              "name": "_paused",
+              "type": "bool"
+            }
+          ],
+          "returns": [],
+          "visibility": "public"
+        },
+        {
+          "kind": "function",
+          "loc": {
+            "column": 4,
+            "line": 169
+          },
+          "modifiers": [
+            "onlyOwner"
+          ],
+          "mutability": "nonpayable",
+          "name": "transferOwnership",
+          "parameters": [
+            {
+              "name": "newOwner",
+              "type": "address"
+            }
+          ],
+          "returns": [],
+          "visibility": "public"
+        },
+        {
+          "kind": "fallback",
+          "loc": {
+            "column": 4,
+            "line": 174
+          },
+          "modifiers": [],
+          "mutability": "payable",
+          "name": "fallback",
+          "parameters": [],
+          "returns": [],
+          "visibility": "public"
+        }
+      ],
+      "inherits": [],
+      "kind": "contract",
+      "modifiers": [
+        {
+          "name": "onlyOwner",
+          "parameters": []
+        },
+        {
+          "name": "whenNotPaused",
+          "parameters": []
+        }
+      ],
+      "name": "LegacyVault",
+      "pragma": [
+        "^0.4.24"
+      ],
+      "stateVariables": [
+        {
+          "constant": true,
+          "immutable": false,
+          "name": "name",
+          "type": "string",
+          "visibility": "public"
+        },
+        {
+          "constant": true,
+          "immutable": false,
+          "name": "symbol",
+          "type": "string",
+          "visibility": "public"
+        },
+        {
+          "constant": true,
+          "immutable": false,
+          "name": "decimals",
+          "type": "uint8",
+          "visibility": "public"
+        },
+        {
+          "constant": true,
+          "immutable": false,
+          "name": "FEE_NUMERATOR",
+          "type": "uint256",
+          "visibility": "public"
+        },
+        {
+          "constant": true,
+          "immutable": false,
+          "name": "FEE_DENOMINATOR",
+          "type": "uint256",
+          "visibility": "public"
+        },
+        {
+          "constant": true,
+          "immutable": false,
+          "name": "PROTOCOL_FEE_BPS",
+          "type": "uint256",
+          "visibility": "public"
+        },
+        {
+          "constant": false,
+          "immutable": false,
+          "name": "token",
+          "type": "ERC20",
+          "visibility": "public"
+        },
+        {
+          "constant": false,
+          "immutable": false,
+          "name": "owner",
+          "type": "address",
+          "visibility": "public"
+        },
+        {
+          "constant": false,
+          "immutable": false,
+          "name": "treasury",
+          "type": "address",
+          "visibility": "public"
+        },
+        {
+          "constant": false,
+          "immutable": false,
+          "name": "paused",
+          "type": "bool",
+          "visibility": "public"
+        },
+        {
+          "constant": false,
+          "immutable": false,
+          "name": "totalSupply",
+          "type": "uint256",
+          "visibility": "public"
+        },
+        {
+          "constant": false,
+          "immutable": false,
+          "name": "balanceOf",
+          "type": "mapping(address => uint256)",
+          "visibility": "public"
+        },
+        {
+          "constant": false,
+          "immutable": false,
+          "name": "ethReserve",
+          "type": "uint256",
+          "visibility": "public"
+        },
+        {
+          "constant": false,
+          "immutable": false,
+          "name": "tokenReserve",
+          "type": "uint256",
+          "visibility": "public"
+        },
+        {
+          "constant": false,
+          "immutable": false,
+          "name": "protocolFees",
+          "type": "uint256",
+          "visibility": "public"
+        }
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "confidence": "certain",
+      "contract": "SafeMath",
+      "id": "legacy-pragma",
+      "loc": {
+        "column": 0,
+        "line": 1
+      },
+      "message": "pragma \"^0.4.24\" admits compilers below 0.8.0 (unchecked arithmetic)",
+      "severity": "high"
+    },
+    {
+      "confidence": "certain",
+      "contract": "ERC20",
+      "id": "legacy-pragma",
+      "loc": {
+        "column": 0,
+        "line": 1
+      },
+      "message": "pragma \"^0.4.24\" admits compilers below 0.8.0 (unchecked arithmetic)",
+      "severity": "high"
+    },
+    {
+      "confidence": "certain",
+      "contract": "LegacyVault",
+      "id": "legacy-pragma",
+      "loc": {
+        "column": 0,
+        "line": 1
+      },
+      "message": "pragma \"^0.4.24\" admits compilers below 0.8.0 (unchecked arithmetic)",
+      "severity": "high"
+    },
+    {
+      "confidence": "certain",
+      "contract": "LegacyVault",
+      "function": "onlyOwner",
+      "id": "tx-origin-auth",
+      "loc": {
+        "column": 16,
+        "line": 75
+      },
+      "message": "tx.origin used for authorization in LegacyVault.onlyOwner",
+      "severity": "high"
+    },
+    {
+      "confidence": "heuristic",
+      "contract": "LegacyVault",
+      "function": "deposit",
+      "id": "call-before-write",
+      "loc": {
+        "column": 8,
+        "line": 103
+      },
+      "message": "state variable ethReserve is written after an external call in LegacyVault.deposit (reentrancy)",
+      "severity": "high"
+    },
+    {
+      "confidence": "heuristic",
+      "contract": "LegacyVault",
+      "function": "withdraw",
+      "id": "call-before-write",
+      "loc": {
+        "column": 8,
+        "line": 121
+      },
+      "message": "state variable balanceOf is written after an external call in LegacyVault.withdraw (reentrancy)",
+      "severity": "high"
+    },
+    {
+      "confidence": "heuristic",
+      "contract": "LegacyVault",
+      "function": "swapEthForTokens",
+      "id": "call-before-write",
+      "loc": {
+        "column": 8,
+        "line": 140
+      },
+      "message": "state variable ethReserve is written after an external call in LegacyVault.swapEthForTokens (reentrancy)",
+      "severity": "high"
+    },
+    {
+      "confidence": "heuristic",
+      "contract": "LegacyVault",
+      "function": "sweepProtocolFees",
+      "id": "unchecked-call",
+      "loc": {
+        "column": 8,
+        "line": 157
+      },
+      "message": "return value of low-level call is discarded in LegacyVault.sweepProtocolFees",
+      "severity": "high"
+    },
+    {
+      "confidence": "heuristic",
+      "contract": "LegacyVault",
+      "function": "sweepProtocolFees",
+      "id": "call-before-write",
+      "loc": {
+        "column": 8,
+        "line": 158
+      },
+      "message": "state variable protocolFees is written after an external call in LegacyVault.sweepProtocolFees (reentrancy)",
+      "severity": "high"
+    }
+  ],
+  "schemaVersion": 1,
+  "source": {
+    "name": "legacy-vault.sol",
+    "sha256": "0050f9fe48b74f8590727a9e668b74c26b072ed69423e73f63e0966662a059b0"
+  }
+}

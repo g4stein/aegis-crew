@@ -1,0 +1,15 @@
+{
+  "invariants": [
+    {
+      "balances": "balanceOf",
+      "contract": "LegacyVault",
+      "id": "balance-conservation",
+      "kind": "balance-conservation",
+      "supply": "totalSupply"
+    }
+  ],
+  "source": {
+    "name": "legacy-vault.sol",
+    "sha256": "0050f9fe48b74f8590727a9e668b74c26b072ed69423e73f63e0966662a059b0"
+  }
+}

@@ -66,28 +66,28 @@ Each task lists the requirements it covers. Tasks marked `*` are optional for th
   - [ ] 7.2 Register the server in `.kiro/settings/mcp.json` (env: `AEGIS_CHAIN_MODE`, `AEGIS_TOOL_SCHEMA`, `AEGIS_RUNTIME_URL`; no key); add the file manually if the sandbox blocks writes
   - [ ] 7.3 Run `scripts/crew/install.sh`; confirm a heartbeat reports `HOLDING`, then `BREACH→MITIGATING` after an injected breach
 
-- [ ] 8. Forge parsing and AST map
-  - [ ] 8.1 `adapters/solidity-parser.ts` around `@solidity-parser/parser` with locations and structured errors
+- [x] 8. Forge parsing and AST map
+  - [x] 8.1 `adapters/solidity-parser.ts` around `@solidity-parser/parser` with locations and structured errors
     - _Requirements: 3.1, 3.9, 3.11_
   - [x] 8.2 `logic/ast-map.ts`, `logic/canonical-json.ts`, `schema/ast-map.schema.json`
     - _Requirements: 3.2, 3.3, 3.12, 3.13_
   - [x] 8.3 Write P13 `ast-map-roundtrip` and P14 `forge-determinism`
     - _Requirements: 3.13, 3.14_
 
-- [ ] 9. Forge risks, invariants, and plan
+- [x] 9. Forge risks, invariants, and plan
   - [x] 9.1 `logic/risks.ts` detectors R1–R4; write P15 `risk-detection`
     - _Requirements: 3.7_
-  - [ ] 9.2 `logic/invariants.ts` token-like detection and `balance-conservation` proposal (logic done, used by P16); remaining: output `<name>.invariants.json` in the Sentinel config format
+  - [x] 9.2 `logic/invariants.ts` token-like detection and `balance-conservation` proposal; output `<name>.invariants.json` in the Sentinel config format
     - _Requirements: 3.8_
   - [x] 9.3 `logic/plan.ts` renders EARS `requirements.md`, `design.md`, `tasks.md`; write P16 `ears-only`
     - _Requirements: 3.5, 3.6_
 
-- [ ] 10. Forge CLI
-  - [ ] 10.1 `cli/main.ts` `ingest [file] [--out] [--specs-dir] [--force]`; no-arg mode scans `input/`
+- [x] 10. Forge CLI
+  - [x] 10.1 `cli/main.ts` `ingest [file] [--out] [--specs-dir] [--force]`; no-arg mode scans `input/`
     - _Requirements: 3.1, 3.4_
-  - [ ] 10.2 `adapters/fs-writer.ts` with temp directory and atomic rename; overwrite refusal
+  - [x] 10.2 `adapters/fs-writer.ts` with temp directory and atomic rename; overwrite refusal
     - _Requirements: 3.9, 3.10_
-  - [ ] 10.3 Golden tests: `tests/fixtures/LegacyToken.sol` (pragma 0.4.x, `tx.origin`, unchecked `call`) → expected outputs
+  - [x] 10.3 Golden test: `input/legacy-vault.sol` (pragma ^0.4.24, `tx.origin`, unchecked `call`, reentrancy) → committed CLI outputs, byte for byte (`tests/pbt/legacy-vault.golden.test.ts`)
     - _Requirements: 3.1–3.13_
 
 - [ ] 11. End-to-end demo

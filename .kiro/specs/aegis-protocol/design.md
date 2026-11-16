@@ -239,7 +239,8 @@ It is a newspaper front page on a rigid 12-column grid with 1px rules. From top 
 
 | Module | Layer | Responsibility |
 |---|---|---|
-| `adapters/solidity-parser.ts` | adapter | Wrap `@solidity-parser/parser` with `loc: true`. Convert parser errors into `{ line, column, message }`. |
+| `adapters/solidity-parser.ts` | adapter | Wrap `@solidity-parser/parser` with `loc: true`. Convert parser errors into `{ line, column, message }`. `patches/@solidity-parser+parser+0.20.2.patch` (applied by `patch-package` on install) makes `parse` throw `ParserError` before building the AST; unpatched 0.20.2 crashes with a `TypeError` and no location on some syntax errors, which would break 3.9. |
+| `logic/ingest.ts` | core | `buildIngest(unit, { sourceName, sha256 })`: composes the map, invariants, plan, and canonical JSON into file contents. `specName` derives the kebab-case `<name>`. |
 | `adapters/fs-writer.ts` | adapter | Write all outputs to a temp directory, then rename into place (no partial output, 3.9). Refuse an existing spec directory without `--force` (3.10). |
 | `adapters/hash.ts` | adapter | SHA-256 of the source, passed into the logic. |
 | `logic/ast-map.ts` | core | `toAstMap(sourceUnit, { sourceName, sha256 }): AstMap` (3.2) |
@@ -257,7 +258,7 @@ It is a newspaper front page on a rigid 12-column grid with 1px rules. From top 
 | R1 `legacy-pragma` | Any `pragma solidity` range that admits a version below `0.8.0` | certain |
 | R2 `tx-origin-auth` | `tx.origin` inside a `require`, `if`, or `==`/`!=` comparison | certain |
 | R3 `unchecked-call` | `.call`, `.delegatecall`, or `.send` whose return value is discarded or never tested | heuristic |
-| R4 `call-before-write` | In one function body, an external call statement precedes an assignment to a state variable | heuristic |
+| R4 `call-before-write` | In one function or modifier body, an external call precedes a write to a state variable. External calls are low-level calls, `.transfer`, and member calls on state variables typed as a contract or interface (for example `token.transferFrom(...)`) | heuristic |
 
 The Forge never compiles or runs input (3.11). The parser is a pure JavaScript parser that turns source text into a syntax tree.
 

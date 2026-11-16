@@ -3,7 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "aegis-forge": "bin/aegis-forge.mjs"
+  },
   "scripts": {
+    "ingest": "node bin/aegis-forge.mjs ingest",
     "typecheck": "tsc",
     "test:pbt": "vitest run tests/pbt"
   },
@@ -17,6 +21,7 @@
     "vitest": "^5.1.0"
   },
   "dependencies": {
-    "@solidity-parser/parser": "^0.20.2"
+    "@solidity-parser/parser": "^0.20.2",
+    "tsx": "^4.23.15"
   }
 }
