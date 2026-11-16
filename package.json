@@ -7,7 +7,7 @@
     "aegis-sentinel"
   ],
   "scripts": {
-    "prepare": "git config core.hooksPath .githooks",
+    "prepare": "git config core.hooksPath .githooks || true",
     "postinstall": "npx --yes patch-package || true",
     "audit:ui": "node scripts/hooks/ui-audit.mjs --all"
   },
