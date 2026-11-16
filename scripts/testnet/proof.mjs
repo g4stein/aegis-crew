@@ -121,9 +121,14 @@ async function proof() {
 
   const balance = await owner.getBalance();
   log(`owner ${me}: ${yoctoToNear(balance, 3)} NEAR`);
-  // Storage costs 1e19 yoctoNEAR per byte; fund the wasm plus 1 NEAR of headroom.
-  const guardFunding = BigInt(wasm.length) * 10n ** 19n + nearToYocto('1');
-  expect(balance > guardFunding + nearToYocto('1'), `owner needs at least ${yoctoToNear(guardFunding + nearToYocto('1'), 2)} NEAR (testnet faucet)`);
+  // Storage costs 1e19 yoctoNEAR per byte; fund the wasm plus 0.5 NEAR for state and deposits.
+  const guardFunding = BigInt(wasm.length) * 10n ** 19n + nearToYocto('0.5');
+  // The Sentinel pays for its own calls. NEAR reserves prepaid gas at a pessimistic price
+  // (run 43938901007: 300 TGas cost 0.3009 NEAR up front), so fund well above the gas used.
+  const sentinelFunding = nearToYocto('1.2');
+  const sentinelAllowance = nearToYocto('1');
+  const needed = guardFunding + sentinelFunding + nearToYocto('0.3');
+  expect(balance > needed, `owner needs at least ${yoctoToNear(needed, 2)} NEAR; has ${yoctoToNear(balance, 2)} (top up at https://near-faucet.io)`);
 
   // 1. Guard: create + fund + deploy + init in one transaction, with no access key.
   log(`creating ${guardId} (${wasm.length} bytes of wasm, no access key)`);
@@ -144,8 +149,8 @@ async function proof() {
   const sentinelKey = KeyPair.fromRandom('ed25519');
   const s = await submit(owner, sentinelId, [
     actions.createAccount(),
-    actions.transfer(nearToYocto('0.3')),
-    actions.addFunctionCallAccessKey(sentinelKey.getPublicKey(), guardId, ['request_pause'], nearToYocto('0.25')),
+    actions.transfer(sentinelFunding),
+    actions.addFunctionCallAccessKey(sentinelKey.getPublicKey(), guardId, ['request_pause'], sentinelAllowance),
   ]);
   out.links.sentinelCreate = txUrl(s.hash);
   const sKeys = await provider.viewAccessKeyList({ accountId: sentinelId });
@@ -205,7 +210,7 @@ async function proof() {
   log(`preview_pause: ${preview.checks.length} checks pass; payload ${preview.payload_hash}`);
 
   const t0 = Date.now();
-  const r = await submit(sentinel, guardId, [actions.functionCall('request_pause', { contract_id: entry.contract_id, breach_id: breachId }, teraToGas('300'), 0n)], 'INCLUDED');
+  const r = await submit(sentinel, guardId, [actions.functionCall('request_pause', { contract_id: entry.contract_id, breach_id: breachId }, teraToGas('150'), 0n)], 'INCLUDED');
   out.links.requestPause = txUrl(r.hash);
   log(`request_pause sent by the Sentinel's function-call key (0 deposit): ${txUrl(r.hash)}`);
 
