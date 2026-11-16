@@ -1,11 +1,13 @@
-// Mock chain behind the chain-state MCP server (AEGIS_CHAIN_MODE=mock).
+// Mock chain. Runs behind the chain-state MCP server (AEGIS_CHAIN_MODE=mock) and, for static
+// hosting, inside the browser tab (adapters/mock/in-process-chain.ts). Environment-neutral:
+// no Node or DOM APIs, so both hosts run the same code.
 // Simulates the guarded token's storage, the Aegis Guard contract on NEAR, the MPC signer, and
 // the target chain. No network calls and no real signatures. Every rule runs in the pure core:
 // the guard mirror (core/guard.ts, conformance-tested against the Rust contract), the
 // invariant engine, and the mitigation state machine.
 import { keccak_256 } from '@noble/hashes/sha3.js';
-import { bytesToHex, concatBytes, hexToBytes } from '../../src/core/bytes';
-import type { GuardedEntry, GuardSettings } from '../../src/core/config';
+import { bytesToHex, concatBytes, hexToBytes } from '../../core/bytes';
+import type { GuardedEntry, GuardSettings } from '../../core/config';
 import {
   GUARD_CHECKS,
   initialGuardState,
@@ -17,13 +19,13 @@ import {
   type GuardRejection,
   type GuardState,
   type MpcSignResult,
-} from '../../src/core/guard';
-import { computePostState, evaluate, type TokenState } from '../../src/core/invariants/engine';
-import { DEFAULT_MITIGATION_CONFIG, initialMachine, step, type Command, type MitigationEvent, type MitigationMachine } from '../../src/core/mitigation/fsm';
-import { encodeEip1559Signed } from '../../src/core/mitigation/payload';
-import type { EvmPrefetch, PauseIntent } from '../../src/core/mitigation/types';
-import type { InvariantReading } from '../../src/core/model';
-import type { BroadcastResult, ChainReadout, MitigationStatus, WirePayload } from '../../src/core/wire';
+} from '../../core/guard';
+import { computePostState, evaluate, type TokenState } from '../../core/invariants/engine';
+import { DEFAULT_MITIGATION_CONFIG, initialMachine, step, type Command, type MitigationEvent, type MitigationMachine } from '../../core/mitigation/fsm';
+import { encodeEip1559Signed } from '../../core/mitigation/payload';
+import type { EvmPrefetch, PauseIntent } from '../../core/mitigation/types';
+import type { InvariantReading } from '../../core/model';
+import type { BroadcastResult, ChainReadout, MitigationStatus, WirePayload } from '../../core/wire';
 
 export interface MockTiming {
   readonly breachAtMs?: number;

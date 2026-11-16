@@ -75,6 +75,8 @@ export type LinkState = 'connecting' | 'open' | 'lost';
 export interface FeedSource {
   readonly kind: SourceKind;
   readonly link: LinkState;
+  /** Live-mock only: where the runtime loop runs (a Node process, or this browser tab). */
+  readonly host?: 'node' | 'browser';
   /** Repo-relative path of the Forge invariants file that defined the registry. */
   readonly invariantsFile?: string;
   readonly invariantsSha256?: string;

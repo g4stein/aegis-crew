@@ -49,14 +49,14 @@ The runtime spawns `aegis-sentinel/mcp/chain-state-server.mjs` over stdio. The m
 
 ### Deployed dashboard
 
-`vercel.json` builds the dashboard as a static site. Only **Scripted** works there: **Live-mock** needs the Node runtime and MCP server, so on Vercel it shows `[ERR] Feed lost`.
+`vercel.json` builds the dashboard as a static site. Both data sources work there. With no Node runtime to reach, **Live-mock** runs the same runtime loop, mock chain, and Aegis Guard mirror inside the tab (masthead: `LIVE-MOCK · IN-TAB`), with the same bundled Forge invariants and sha256. Open [`/?source=live-mock`](https://aegis-crew.vercel.app/?source=live-mock): the breach fires 15 s after load and ends in a confirmed pause. The in-tab path skips only the MCP stdio hop and its JSON Schema check, and holds no keys. Locally, `?runtime=browser` forces it.
 
 ### Tests
 
 ```sh
 npm run -w aegis-sentinel test:pbt   # P1–P12, P17–P20, env hardening + 310 Rust encoding vectors
 npm run -w aegis-forge test:pbt      # P13–P16 + legacy-vault golden test
-npm run -w aegis-sentinel test:e2e   # runtime -> MCP -> Aegis Guard (mirror) -> confirmed pause
+npm run -w aegis-sentinel test:e2e   # runtime -> MCP -> Aegis Guard (mirror) -> confirmed pause; in-tab runtime; bundle boundary
 npm run -w aegis-sentinel test:guard # Aegis Guard contract: 18 Rust unit tests (needs cargo)
 npm run -w aegis-sentinel typecheck && npm run audit:ui
 npm run -w aegis-sentinel vectors    # regenerate EIP-1559 vectors (needs cargo)
@@ -102,7 +102,8 @@ Deliberate bugs were injected one at a time, and every one was caught:
 | Evidence | Where |
 |---|---|
 | Scripted dashboard: nominal, breach, contained | [`01`](.kiro/artifacts/screenshots/sentinel-01-nominal.png) · [`02`](.kiro/artifacts/screenshots/sentinel-02-breach.png) · [`03`](.kiro/artifacts/screenshots/sentinel-03-contained.png) |
-| Live-mock dashboard: holding, breach, contained | [`04`](.kiro/artifacts/screenshots/sentinel-04-live-mock-holding.png) · [`05`](.kiro/artifacts/screenshots/sentinel-05-live-mock-breach.png) · [`06`](.kiro/artifacts/screenshots/sentinel-06-live-mock-contained.png) |
+| Live-mock dashboard (Node runtime + MCP): holding, breach, contained | [`04`](.kiro/artifacts/screenshots/sentinel-04-live-mock-holding.png) · [`05`](.kiro/artifacts/screenshots/sentinel-05-live-mock-breach.png) · [`06`](.kiro/artifacts/screenshots/sentinel-06-live-mock-contained.png) |
+| Live-mock dashboard (in-tab runtime, static hosting): holding, breach, contained | [`07`](.kiro/artifacts/screenshots/sentinel-07-in-tab-holding.png) · [`08`](.kiro/artifacts/screenshots/sentinel-08-in-tab-breach.png) · [`09`](.kiro/artifacts/screenshots/sentinel-09-in-tab-contained.png) |
 | Recorded runtime snapshots and log (7 ms detect-to-submit, 3.76 s to confirmed pause) | [`.kiro/artifacts/live-mock/`](.kiro/artifacts/live-mock/), produced by [`scripts/e2e/record-live-mock.mjs`](scripts/e2e/record-live-mock.mjs) |
 | 310 cross-language encoding vectors (Rust `omni-transaction` ↔ TypeScript, byte for byte) | [`aegis-sentinel/tests/vectors/eip1559-pause.json`](aegis-sentinel/tests/vectors/eip1559-pause.json), from [`contracts/pause-tx`](aegis-sentinel/contracts/pause-tx/) |
 | `omni-transaction` leading-zero finding: raw 32-byte `r`/`s` encode non-canonically for about 1 in 128 signatures, which Ethereum nodes reject. The crate strips leading zeros; vectors lock it in. | [`contracts/pause-tx/src/lib.rs`](aegis-sentinel/contracts/pause-tx/src/lib.rs) |
@@ -117,7 +118,7 @@ Deliberate bugs were injected one at a time, and every one was caught:
 - **Keyless signing.** The target-chain key is never stored, loaded, or derived. NEAR Chain Signatures' MPC network signs for an address derived from the guard contract and a per-contract derivation path.
 - **Aegis Guard contract.** The MPC `sign` method needs an attached deposit, and NEAR function-call keys cannot attach deposits. So the Sentinel's key can call only the guard's `request_pause(contract_id, breach_id)`; the guard builds the `pause()` transaction itself, enforces 13 checks on-chain (allowlist, target, chain, selector, value, fee caps, quote freshness, per-contract rate limit, no duplicate or in-flight request, balance), and pays the 1 yoctoNEAR deposit from its own balance. A stolen Sentinel key can at most pause allowlisted contracts, slowly.
 - **The caller cannot choose the payload.** `broadcast_mitigation_payload` accepts only `contract_id`, `breach_id`, and `dry_run`. The server builds the transaction; the runtime re-encodes it, checks the hash, and runs its own gate before submitting.
-- **Where the key lives.** `AEGIS_SIGNER_KEY` comes from `.env` (git-ignored; see [`.env.example`](.env.example)) and is read only by the chain-state server process. No tool returns it, so it never enters an agent's context, and the browser bundle contains no chain or signer code (`tsconfig.json` excludes the Node-only adapters, runtime, and MCP server from the browser build). The server also ignores unexpanded `${...}` placeholders passed by an MCP host, so a literal `"${AEGIS_SIGNER_KEY}"` can never override `.env`.
+- **Where the key lives.** `AEGIS_SIGNER_KEY` comes from `.env` (git-ignored; see [`.env.example`](.env.example)) and is read only by the chain-state server process. No tool returns it, so it never enters an agent's context, and the browser bundle contains no chain or signer code: [`tests/e2e/bundle-boundary.test.ts`](aegis-sentinel/tests/e2e/bundle-boundary.test.ts) walks the bundle's import graph and fails if it reaches the Node host, the chain/config/crypto adapters, the MCP server, or Node-only packages. The server also ignores unexpanded `${...}` placeholders passed by an MCP host, so a literal `"${AEGIS_SIGNER_KEY}"` can never override `.env`.
 - **Defense in depth.** The pure core rejects any calldata other than `0x8456cb59`, any non-zero value, and any target or chain not on the allowlist (P6). EIP-1559 transactions carry `chainId`, and each contract and chain gets its own derivation path, so signatures cannot be replayed elsewhere.
 - **Agents are least-privilege.** Solidity input is treated as data, never compiled or executed. The Sentinel agent has no shell and no write access.
 - **Status.** The Aegis Guard contract is implemented and unit-tested in near-sdk's mocked blockchain; it has not yet been built to wasm, sandbox-tested, or deployed (tasks 5.3, 5.5). Live chain adapters are task 6. Today the full pipeline runs against the mock chain, with the guard enforced by its conformance-tested mirror.

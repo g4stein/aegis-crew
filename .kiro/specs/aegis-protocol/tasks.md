@@ -63,6 +63,8 @@ Each task lists the requirements it covers. Tasks marked `*` are optional for th
     - _Requirements: 2.1, 2.2, 2.4, 2.6, 2.11, 2.12_
   - [x] 6.5 `adapters/feed/sse-feed.ts`; SCRIPTED / LIVE-MOCK toggle in the dashboard (`?source=`; API base `VITE_SENTINEL_API`)
     - _Requirements: 2.17_
+  - [x] 6.6 In-tab runtime for static hosting: extract the loop to environment-neutral `runtime/loop.ts` behind the `ChainStateClient` port (`core/chain.ts`); `BrowserRuntimeFeed` runs it against `InProcessChainClient` + `MockChain` with bundled, browser-hashed Forge invariants; `LiveMockFeed` picks Node or in-tab once (`?runtime=`); e2e `browser-runtime` and `bundle-boundary` tests
+    - _Requirements: 2.1, 2.2, 2.7, 2.10, 2.11, 2.17_
 
 - [ ] 7. Chain-state MCP server
   - [x] 7.1 `mcp/chain-state-server.mjs` (stdio) serving the tools in `.kiro/mcp/chain-state-mcp.json`; `mock` mode from fixtures (live mode: tasks 5–6)

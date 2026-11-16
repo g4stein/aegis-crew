@@ -3,6 +3,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { resolve } from 'node:path';
+import type { ChainStateClient } from '../../core/chain';
 import { err, ok, type Result } from '../../core/result';
 import { decodeBroadcastResult, decodeChainReadout, decodeMitigationStatus, type BroadcastResult, type ChainReadout, type MitigationStatus } from '../../core/wire';
 import { REPO_ROOT } from '../config/load-guarded';
@@ -15,7 +16,7 @@ export interface ChainClientOptions {
   readonly onLog?: (line: string) => void;
 }
 
-export class McpChainClient {
+export class McpChainClient implements ChainStateClient {
   private client?: Client;
   private transport?: StdioClientTransport;
 

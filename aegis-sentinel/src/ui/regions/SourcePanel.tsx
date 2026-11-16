@@ -30,6 +30,15 @@ function ScriptedActions({ source, snapshot }: { source: Extract<DataSource, { i
 function LiveActions({ source, snapshot }: { source: Extract<DataSource, { id: 'live-mock' }>; snapshot: SentinelSnapshot }) {
   const [busy, setBusy] = useState(false);
   const link = snapshot.source?.link ?? 'connecting';
+  const host = snapshot.source?.host;
+  const note =
+    link !== 'open'
+      ? host === 'browser'
+        ? 'The in-tab runtime did not start. See the event log.'
+        : 'Looking for a Node runtime (npm run -w aegis-sentinel runtime). Without one, the runtime starts in this tab.'
+      : host === 'browser'
+        ? 'Runtime loop, mock chain and Aegis Guard mirror run in this tab: the same code as the Node runtime, minus the MCP stdio hop. No keys. The fixture mis-credits shares 15 s after a (re)start.'
+        : 'Runtime polls the chain-state MCP server over stdio. The fixture mis-credits shares 15 s after a (re)start.';
   const restart = () => {
     setBusy(true);
     void source.controls.restartMockChain().finally(() => setBusy(false));
@@ -39,11 +48,7 @@ function LiveActions({ source, snapshot }: { source: Extract<DataSource, { id: '
       <Button onClick={restart} disabled={busy || link !== 'open'}>
         <Mark shape="arrow-left" /> Restart mock chain
       </Button>
-      <Label tone="ash">
-        {link === 'open'
-          ? 'Runtime polls the chain-state MCP server over stdio. The fixture mis-credits shares 15 s after a (re)start.'
-          : 'Start the runtime: npm run -w aegis-sentinel runtime'}
-      </Label>
+      <Label tone="ash">{note}</Label>
     </>
   );
 }

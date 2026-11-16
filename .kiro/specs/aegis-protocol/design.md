@@ -280,7 +280,11 @@ It is a newspaper front page on a rigid 12-column grid with 1px rules. From top 
 | Event log | Tail of runtime events in mono |
 | Colophon | Fonts, spec references |
 
-`src/main.tsx` builds both feeds; a SCRIPTED / LIVE-MOCK radio toggle (also `?source=`) selects one. SCRIPTED is `MockFeed` with demo controls (SIMULATE BREACH, RESET); LIVE-MOCK is `SseFeed` on same-origin `/api` (override with `VITE_SENTINEL_API`). A lost runtime shows `[ERR] Feed lost` with no acid.
+`src/main.tsx` builds both feeds; a SCRIPTED / LIVE-MOCK radio toggle (also `?source=`) selects one. SCRIPTED is `MockFeed` with demo controls (SIMULATE BREACH, RESET). LIVE-MOCK is `LiveMockFeed`, which picks a runtime host once (`chooseRuntimeHost` in `core/chain.ts`):
+
+- **Node:** on localhost (or with `VITE_SENTINEL_API`), a probe of `/api/snapshot` that returns JSON selects `SseFeed`, streaming from `npm run runtime`. A runtime that stops later shows `[ERR] Feed lost` with no acid.
+- **In-tab:** otherwise (static hosting such as Vercel) `BrowserRuntimeFeed` runs the same `SentinelLoop` (`src/runtime/loop.ts`) against `InProcessChainClient`, which wraps the same `MockChain` (`src/adapters/mock/mock-chain.ts`) with the same wire encode/decode the MCP path uses. The Forge invariants and guarded config are bundled as raw text and hashed in the browser, so provenance matches the Node runtime byte for byte. It skips only the stdio hop and the JSON Schema check. No keys exist on this path.
+- `?runtime=node|browser` forces a host. `tests/e2e/bundle-boundary.test.ts` proves the bundle's import graph never reaches `src/runtime/sentinel.ts`, `src/adapters/{chain,config,crypto}`, `mcp/src`, or Node-only packages.
 
 ### Forge (`aegis-forge/`)
 
@@ -432,7 +436,8 @@ Oracles: P1–P4 compare against a separately written plain-object model of ERC-
 | Guard contract panics (not allowlisted, rate limit, fee cap) | NEAR transaction outcome | `failed`; critical alert with the panic message |
 | No signature by `SIGNATURE_TIMEOUT_MS` | state machine timeout | One resubmit plus alert, then `failed` (2.3) |
 | EVM broadcast rejected (nonce, fee) | broadcaster | Refresh prefetch, rebuild, re-request once; then `failed` |
-| Runtime unreachable | `SseFeed` | Bulletin shows `[ERR] FEED LOST` in mono, with no acid (this is not a breach) |
+| Node runtime unreachable after it was selected | `SseFeed` | Bulletin shows `[ERR] FEED LOST` in mono, with no acid (this is not a breach) |
+| In-tab runtime cannot load its bundled config | `BrowserRuntimeFeed` | Bulletin shows `[ERR] RUNTIME FAILED` with the core's validation error, no acid |
 | Solidity parse error | parser adapter | Exit 1, print `file:line:column message`, write nothing (3.9) |
 | Spec directory exists | fs-writer | Exit 1 unless `--force` (3.10) |
 | Prompt-like text in Solidity comments | Archivist agent | Treat as data; report it |

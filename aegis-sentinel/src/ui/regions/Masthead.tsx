@@ -4,12 +4,19 @@ import { useNow } from '../hooks';
 import { Cell, Subgrid } from '../primitives/Sheet';
 import { Heading, Label } from '../primitives/Type';
 
+function feedLabel(s: SentinelSnapshot): string {
+  if (s.source?.kind !== 'live-mock') return 'SCRIPTED';
+  if (s.source.host === 'node') return 'LIVE-MOCK · MCP';
+  if (s.source.host === 'browser') return 'LIVE-MOCK · IN-TAB';
+  return 'LIVE-MOCK';
+}
+
 export function Masthead({ snapshot }: { snapshot: SentinelSnapshot }) {
   const now = useNow();
   const block = snapshot.contracts[0]?.blockNumber;
   const rows: [string, string][] = [
     ['Network', snapshot.network],
-    ['Feed', snapshot.source?.kind === 'live-mock' ? 'LIVE-MOCK · MCP' : 'SCRIPTED'],
+    ['Feed', feedLabel(snapshot)],
     ['Block', block === undefined ? '\u2014' : block.toString()],
     ['Date', formatUtcDate(now)],
     ['UTC', formatUtcTime(now)],

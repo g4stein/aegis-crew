@@ -49,11 +49,14 @@ function copy(severity: Severity, s: SentinelSnapshot, c: ContractSnapshot | und
 /** A lost or pending feed is not a breach: it is reported in mono with no acid (design.md, Error Handling). */
 function linkCopy(s: SentinelSnapshot) {
   const link = s.source?.link;
+  const inTab = s.source?.host === 'browser';
   if (link === 'lost') {
-    return { flag: <>[ERR] Feed lost</>, headline: 'Runtime unreachable.', deck: 'Retrying. Start it with npm run -w aegis-sentinel runtime' };
+    return inTab
+      ? { flag: <>[ERR] Runtime failed</>, headline: 'In-tab runtime could not start.', deck: s.events[0]?.message ?? 'See the event log' }
+      : { flag: <>[ERR] Feed lost</>, headline: 'Runtime unreachable.', deck: 'Retrying. Start it with npm run -w aegis-sentinel runtime' };
   }
   if (link === 'connecting' && s.contracts.length === 0) {
-    return { flag: <><Mark shape="square" /> Connecting</>, headline: 'Waiting for the runtime.', deck: 'Live-mock reads chain state through the chain-state MCP server' };
+    return { flag: <><Mark shape="square" /> Connecting</>, headline: 'Waiting for the runtime.', deck: 'Looking for a Node runtime on /api; otherwise the runtime starts in this tab' };
   }
   return undefined;
 }

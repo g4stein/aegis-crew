@@ -11,7 +11,7 @@ import { isAbsolute, resolve } from 'node:path';
 import { encodeBroadcastResult, encodeChainReadout, encodeMitigationStatus } from '../../src/core/wire';
 import { loadGuardedConfig, loadGuardSettings, REPO_ROOT } from '../../src/adapters/config/load-guarded';
 import { prepareEnv } from './env';
-import { MockChain, type ChainFixture } from './mock-chain';
+import { MockChain, type ChainFixture } from '../../src/adapters/mock/mock-chain';
 
 const log = (msg: string) => process.stderr.write(`[chain-state] ${msg}\n`);
 

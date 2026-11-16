@@ -417,6 +417,7 @@ export function decodeSnapshot(v: unknown): R<SentinelSnapshot> {
     source = compact<FeedSource>({
       kind: kind as FeedSource['kind'],
       link: link as FeedSource['link'],
+      host: v.source.host === 'node' || v.source.host === 'browser' ? v.source.host : undefined,
       invariantsFile: isStr(v.source.invariantsFile) ? v.source.invariantsFile : undefined,
       invariantsSha256: isStr(v.source.invariantsSha256) ? v.source.invariantsSha256 : undefined,
       sourceSha256: isStr(v.source.sourceSha256) ? v.source.sourceSha256 : undefined,
