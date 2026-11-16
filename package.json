@@ -9,6 +9,7 @@
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
     "postinstall": "npx --yes patch-package || true",
+    "build": "npm run -w aegis-sentinel build",
     "audit:ui": "node scripts/hooks/ui-audit.mjs --all"
   },
   "devDependencies": {

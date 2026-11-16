@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "postbuild": "node ../scripts/vercel-dist.mjs",
     "preview": "vite preview",
     "runtime": "tsx src/runtime/sentinel.ts",
     "mcp": "node mcp/chain-state-server.mjs",
