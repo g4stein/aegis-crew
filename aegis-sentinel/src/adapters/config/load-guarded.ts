@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { invariantFilesOf, parseGuardedConfig, type GuardedEntry } from '../../core/config';
+import { invariantFilesOf, parseGuardedConfig, parseGuardSettings, type GuardedEntry, type GuardSettings } from '../../core/config';
 import { err, ok, type Result } from '../../core/result';
 
 export const REPO_ROOT = resolve(fileURLToPath(new URL('../../../../', import.meta.url)));
@@ -17,6 +17,12 @@ function readJson(path: string): Result<{ json: unknown; sha256: string }, strin
   } catch (e) {
     return err(`cannot read ${relative(REPO_ROOT, path)}: ${e instanceof Error ? e.message : String(e)}`);
   }
+}
+
+/** Reads the Aegis Guard settings (`guard` object) from the guarded config. */
+export function loadGuardSettings(configPath = DEFAULT_GUARDED_CONFIG): Result<GuardSettings, string> {
+  const cfg = readJson(configPath);
+  return cfg.ok ? parseGuardSettings(cfg.value.json) : cfg;
 }
 
 /** Loads and validates the guarded config. Invariants files must stay inside the repo. */

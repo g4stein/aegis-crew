@@ -36,16 +36,20 @@ Each task lists the requirements it covers. Tasks marked `*` are optional for th
     - _Requirements: 2.17_
 
 - [ ] 5. Aegis Guard contract (NEAR, Rust)
-  - [ ] 5.1 Scaffold `contracts/aegis-guard` with `near-sdk`; owner-only `set_guarded` / `remove_guarded`
+  - [x] 5.1 Scaffold `contracts/aegis-guard` with `near-sdk`; owner-only `set_guarded` / `remove_guarded`
     - _Requirements: 2.8, 2.10_
-  - [ ] 5.2 Implement `request_pause`: predecessor check, allowlist, fee cap, rate limit, EIP-1559 `pause()` build, keccak hash, MPC `sign` call with deposit, `on_signature` callback
-    - Verify `SignRequestArgs` against `near/mpc` `crates/contract/src/api/sign.rs`
+  - [x] 5.2 Implement `request_pause(contract_id, breach_id)`: predecessor check, allowlist, in-flight/duplicate, rate limit, fee-quote freshness, on-chain `enforce` of the built tx (target, chain, selector, value, fee caps), balance check, EIP-1559 `pause()` build via `pause-tx`, keccak hash, MPC `sign` with 1 yN deposit, `on_signature` callback; events and views
+    - `SignRequestArgs` / `SignatureResponse` shapes verified against near/mpc (`near-mpc-crypto-types`, wire-format snapshot)
+  - [x] 5.2a Unit tests (near-sdk mocked blockchain, mocked MPC): 18 tests incl. allowlist, selector, fee cap, rate limit, duplicate/in-flight, caller, deposit, callback; 10 mutations caught
+    - _Requirements: 2.3, 2.7, 2.8, 2.9, 2.12, 2.15_
+  - [x] 5.2b Conformance vectors `tests/vectors/aegis-guard.json` from the contract; TS mirror `core/guard.ts` replays them (P20) and is checked against an independent oracle (P19); mock chain-state server runs the mirror
+    - _Requirements: 2.5, 2.8, 2.9, 2.12_
     - _Requirements: 2.5, 2.7, 2.8, 2.9, 2.10_
-  - [ ] 5.3 `near-workspaces` sandbox tests for the guard (vectors already emitted by `contracts/pause-tx`, see 5.4)
+  - [ ] 5.3 `near-workspaces` sandbox tests for the guard (needs the `wasm32-unknown-unknown` target; not installable in this sandbox)
     - _Requirements: 2.8, 2.9, 2.16_
   - [x] 5.4 `contracts/pause-tx` (Rust, omni-transaction) emits 310 vectors; Sentinel test matches unsigned bytes, signing hash, and signed bytes for every vector
     - _Requirements: 2.15_
-  - [ ] 5.5 Deploy to testnet; add a function-call key for the Sentinel account restricted to `request_pause`; record the derived EVM address
+  - [ ] 5.5 Deploy to testnet; add a function-call key for the Sentinel account restricted to `request_pause` and one for the fee oracle restricted to `update_fee_quote`; fund the guard for sign deposits; record the derived EVM address
     - _Requirements: 2.5, 2.7_
 
 - [ ] 6. Sentinel chain adapters and runtime

@@ -175,7 +175,8 @@ class Runtime {
     }
     if (dry.value.status === 'refused' || !dry.value.payload) {
       if (dry.value.refusalReason === 'breach_not_current') this.submitted.delete(breachId);
-      this.log('warn', `server refused pause for ${contractId}: ${dry.value.refusalReason ?? 'no payload'}`);
+      const why = dry.value.refusalReason === 'guard_rejected' ? `Aegis Guard rejected: ${dry.value.guardReason ?? 'unknown'}` : (dry.value.refusalReason ?? 'no payload');
+      this.log(dry.value.refusalReason === 'guard_rejected' ? 'critical' : 'warn', `server refused pause for ${contractId}: ${why}`);
       return;
     }
     const p = dry.value.payload;
@@ -202,7 +203,9 @@ class Runtime {
       this.submitted.delete(breachId);
       return this.log('critical', `submit failed: ${sub.error}`);
     }
-    if (sub.value.status !== 'submitted' || !sub.value.mitigationId) return this.log('warn', `server refused submission: ${sub.value.refusalReason ?? sub.value.status}`);
+    if (sub.value.status !== 'submitted' || !sub.value.mitigationId) {
+      return this.log('critical', `server refused submission: ${sub.value.refusalReason ?? sub.value.status}${sub.value.guardReason ? ` (${sub.value.guardReason})` : ''}`);
+    }
     if (sub.value.payload?.payloadHash !== p.payloadHash) this.log('critical', 'server signed a different payload than the one verified');
 
     this.tracked.set(contractId, {
@@ -215,6 +218,10 @@ class Runtime {
     const total = ack - t0;
     const stages = `read ${Math.max(0, t0 - tRead)} · encode ${tEncode - t0} · gate ${tGate - tEncode} · submit ${ack - tGate} ms`;
     this.log(total <= BUDGET_MS ? 'warn' : 'critical', `fast path detect-to-submit ${total} ms of ${BUDGET_MS} ms (${stages}); server detect-to-submit ${sub.value.timings?.detectToSubmit ?? '?'} ms`);
+    const sr = sub.value.signRequest;
+    if (sr?.guardContract) {
+      this.log('warn', `${sr.guardContract} enforced ${sr.guardChecks?.length ?? 0} checks and paid ${sr.depositYoctonear ?? '?'} yoctoNEAR to ${sr.mpcContract ?? 'MPC'}.sign`);
+    }
   }
 
   private snapshot(): SentinelSnapshot {

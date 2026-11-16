@@ -165,7 +165,14 @@ export function encodeChainReadout(r: ChainReadout): Obj {
 
 // ---- broadcast_mitigation_payload ----------------------------------------------------------
 
-export type RefusalReason = 'not_allowlisted' | 'breach_not_current' | 'already_paused' | 'mitigation_in_flight' | 'state_too_old' | 'signer_unavailable';
+export type RefusalReason =
+  | 'not_allowlisted'
+  | 'breach_not_current'
+  | 'already_paused'
+  | 'mitigation_in_flight'
+  | 'state_too_old'
+  | 'signer_unavailable'
+  | 'guard_rejected';
 
 export interface WirePayload {
   readonly chain: string;
@@ -185,8 +192,17 @@ export interface BroadcastResult {
   readonly contractId: string;
   readonly mitigationId?: string;
   readonly refusalReason?: RefusalReason;
+  /** Set when refusalReason is guard_rejected: the Aegis Guard rejection code. */
+  readonly guardReason?: string;
   readonly payload?: WirePayload;
-  readonly signRequest?: { readonly mpcContract?: string; readonly derivationPath?: string; readonly nearTxHash?: string };
+  readonly signRequest?: {
+    readonly mpcContract?: string;
+    readonly derivationPath?: string;
+    readonly nearTxHash?: string;
+    readonly guardContract?: string;
+    readonly depositYoctonear?: string;
+    readonly guardChecks?: readonly string[];
+  };
   readonly timings?: { readonly t0Detected?: number; readonly signRequestSubmitted?: number; readonly detectToSubmit?: number };
 }
 
@@ -197,7 +213,8 @@ export function decodeBroadcastResult(v: unknown): R<BroadcastResult> {
   const contractId = field(v, 'contract_id', at, isStr, 'string');
   const mitigationId = opt(v, 'mitigation_id', at, isStr, 'string');
   const reason = opt(v, 'refusal_reason', at, isStr, 'string');
-  for (const r of [status, contractId, mitigationId, reason]) if (!r.ok) return r as R<never>;
+  const guardReason = opt(v, 'guard_reason', at, isStr, 'string');
+  for (const r of [status, contractId, mitigationId, reason, guardReason]) if (!r.ok) return r as R<never>;
 
   let payload: WirePayload | undefined;
   if (v.payload !== undefined) {
@@ -231,8 +248,18 @@ export function decodeBroadcastResult(v: unknown): R<BroadcastResult> {
       contractId: (contractId as { value: string }).value,
       mitigationId: (mitigationId as { value: string | undefined }).value,
       refusalReason: (reason as { value: string | undefined }).value as RefusalReason | undefined,
+      guardReason: (guardReason as { value: string | undefined }).value,
       payload,
-      signRequest: sr ? compact({ mpcContract: s(sr, 'mpc_contract'), derivationPath: s(sr, 'derivation_path'), nearTxHash: s(sr, 'near_tx_hash') }) : undefined,
+      signRequest: sr
+        ? compact({
+            mpcContract: s(sr, 'mpc_contract'),
+            derivationPath: s(sr, 'derivation_path'),
+            nearTxHash: s(sr, 'near_tx_hash'),
+            guardContract: s(sr, 'guard_contract'),
+            depositYoctonear: s(sr, 'deposit_yoctonear'),
+            guardChecks: Array.isArray(sr.guard_checks) && sr.guard_checks.every(isStr) ? (sr.guard_checks as string[]) : undefined,
+          })
+        : undefined,
       timings: tm ? compact({ t0Detected: num(tm, 't0_detected'), signRequestSubmitted: num(tm, 'sign_request_submitted'), detectToSubmit: num(tm, 'detect_to_submit') }) : undefined,
     }),
   );
@@ -244,6 +271,7 @@ export function encodeBroadcastResult(b: BroadcastResult): Obj {
     contract_id: b.contractId,
     mitigation_id: b.mitigationId,
     refusal_reason: b.refusalReason,
+    guard_reason: b.guardReason,
     payload: b.payload
       ? {
           chain: b.payload.chain,
@@ -259,7 +287,14 @@ export function encodeBroadcastResult(b: BroadcastResult): Obj {
         }
       : undefined,
     sign_request: b.signRequest
-      ? compact({ mpc_contract: b.signRequest.mpcContract, derivation_path: b.signRequest.derivationPath, near_tx_hash: b.signRequest.nearTxHash })
+      ? compact({
+          mpc_contract: b.signRequest.mpcContract,
+          derivation_path: b.signRequest.derivationPath,
+          near_tx_hash: b.signRequest.nearTxHash,
+          guard_contract: b.signRequest.guardContract,
+          deposit_yoctonear: b.signRequest.depositYoctonear,
+          guard_checks: b.signRequest.guardChecks,
+        })
       : undefined,
     timings_ms: b.timings
       ? compact({ t0_detected: b.timings.t0Detected, sign_request_submitted: b.timings.signRequestSubmitted, detect_to_submit: b.timings.detectToSubmit })

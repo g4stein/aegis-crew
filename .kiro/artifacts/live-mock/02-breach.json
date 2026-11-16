@@ -11,68 +11,86 @@
   },
   "events": [
     {
-      "seq": 11,
-      "atMs": 1794840714190,
+      "seq": 14,
+      "atMs": 1794846567024,
       "level": "warn",
-      "message": "mit_brk_legacy-vault_7340112: pending signature"
+      "message": "legacy-vault_brk_7340112: pending signature"
+    },
+    {
+      "seq": 13,
+      "atMs": 1794846567023,
+      "level": "warn",
+      "message": "aegis-guard.testnet enforced 13 checks and paid 1 yoctoNEAR to v1.signer-prod.testnet.sign"
+    },
+    {
+      "seq": 12,
+      "atMs": 1794846567023,
+      "level": "warn",
+      "message": "fast path detect-to-submit 8 ms of 500 ms (read 0 · encode 6 · gate 0 · submit 2 ms); server detect-to-submit 32 ms"
+    },
+    {
+      "seq": 11,
+      "atMs": 1794846567022,
+      "level": "info",
+      "message": "mcp: aegis-guard: paid 1 yoctoNEAR sign deposit from guard balance (5000000000000000000000000 yoctoNEAR -> 4999999999999999999999999 yoctoNEAR); v1.signer-prod.testnet.sign(payload 0x00dd6f84de8e…, path aegis/legacy-vault/eip155:11155111, domain 0, 50 TGas)"
     },
     {
       "seq": 10,
-      "atMs": 1794840714189,
-      "level": "warn",
-      "message": "fast path detect-to-submit 7 ms of 500 ms (read 0 · encode 5 · gate 0 · submit 2 ms); server detect-to-submit 30 ms"
+      "atMs": 1794846567022,
+      "level": "info",
+      "message": "mcp: aegis-guard: request_pause(legacy-vault, brk_7340112) accepted at NEAR block 190000002: 13 checks passed (allowlist, target, chain, selector 0x8456cb59, value 0, fee cap, rate limit, in-flight)"
     },
     {
       "seq": 9,
-      "atMs": 1794840714188,
-      "level": "info",
-      "message": "mcp: mitigation mit_brk_legacy-vault_7340112: sign request submitted 30 ms after detection"
+      "atMs": 1794846567015,
+      "level": "critical",
+      "message": "INVARIANT BREACHED balance-conservation on legacy-vault (breach brk_7340112)"
     },
     {
       "seq": 8,
-      "atMs": 1794840714182,
-      "level": "critical",
-      "message": "INVARIANT BREACHED balance-conservation on legacy-vault (breach brk_legacy-vault_7340112)"
+      "atMs": 1794846566991,
+      "level": "info",
+      "message": "mcp: mock chain: invariant breached on legacy-vault, breach_id brk_7340112"
     },
     {
       "seq": 7,
-      "atMs": 1794840714159,
-      "level": "info",
-      "message": "mcp: mock chain: invariant breached on legacy-vault, breach_id brk_legacy-vault_7340112"
-    },
-    {
-      "seq": 6,
-      "atMs": 1794840714159,
+      "atMs": 1794846566991,
       "level": "info",
       "message": "mcp: mock chain: Reentrant withdraw() re-credits shares: balanceOf rises by 500,000 LVS while totalSupply is unchanged. (legacy-vault)"
     },
     {
-      "seq": 5,
-      "atMs": 1794840711676,
+      "seq": 6,
+      "atMs": 1794846564508,
       "level": "info",
-      "message": "dashboard and API on http://127.0.0.1:19279"
+      "message": "dashboard and API on http://127.0.0.1:19289"
     },
     {
-      "seq": 4,
-      "atMs": 1794840711671,
+      "seq": 5,
+      "atMs": 1794846564503,
       "level": "info",
       "message": "connected to chain-state MCP server (stdio, mode mock)"
     },
     {
-      "seq": 3,
-      "atMs": 1794840711660,
+      "seq": 4,
+      "atMs": 1794846564491,
       "level": "info",
       "message": "mcp: ready (mode mock, 3 tools from .kiro/mcp/chain-state-mcp.json)"
     },
     {
-      "seq": 2,
-      "atMs": 1794840711659,
+      "seq": 3,
+      "atMs": 1794846564490,
       "level": "info",
       "message": "mcp: guarding legacy-vault (eip155:11155111 0x000000000000000000000000000000000000ae61); invariants from aegis-forge/output/legacy-vault.invariants.json sha256 11eadab9733d"
     },
     {
+      "seq": 2,
+      "atMs": 1794846564490,
+      "level": "info",
+      "message": "mcp: aegis-guard (mock NEAR): aegis-guard.testnet, balance 5000000000000000000000000 yoctoNEAR; sentinel sentinel.aegis.testnet; MPC v1.signer-prod.testnet"
+    },
+    {
       "seq": 1,
-      "atMs": 1794840711385,
+      "atMs": 1794846564210,
       "level": "info",
       "message": "guarding legacy-vault: invariants from aegis-forge/output/legacy-vault.invariants.json (Forge, source sha256 0050f9fe48b7…)"
     }
@@ -83,7 +101,7 @@
       "chain": "eip155:11155111",
       "address": "0x000000000000000000000000000000000000ae61",
       "block_number": "7340112",
-      "read_at_ms": 1794840714181,
+      "read_at_ms": 1794846567015,
       "paused": false,
       "invariants": [
         {
@@ -93,8 +111,8 @@
           "status": "breached",
           "expected": "1000000",
           "observed": "1500000",
-          "breach_id": "brk_legacy-vault_7340112",
-          "detected_at_ms": 1794840714158
+          "breach_id": "brk_7340112",
+          "detected_at_ms": 1794846566990
         },
         {
           "id": "non-negative-balances",
@@ -107,12 +125,12 @@
       ],
       "mitigation": {
         "state": "pending_signature",
-        "id": "mit_brk_legacy-vault_7340112",
+        "id": "legacy-vault_brk_7340112",
         "attempts": 1,
         "near_tx_hash": "mock_64f07103876e26b955a69845200d0211cdb52b71aab5",
         "timeline": {
-          "t0": 1794840714182,
-          "signRequestSubmitted": 1794840714189
+          "t0": 1794846567015,
+          "signRequestSubmitted": 1794846567023
         }
       }
     }

@@ -1,5 +1,15 @@
 {
-  "$comment": "Guarded contracts. Deployment facts live here; invariants come only from the Forge output file named by invariants_file (path relative to the repo root).",
+  "$comment": "Guarded contracts. Deployment facts and Aegis Guard caps live here; invariants come only from the Forge output file named by invariants_file (path relative to the repo root). In mock mode the chain-state server runs the guard mirror (src/core/guard.ts) with these settings.",
+  "guard": {
+    "account": "aegis-guard.testnet",
+    "owner": "owner.aegis.testnet",
+    "sentinel": "sentinel.aegis.testnet",
+    "fee_oracle": "oracle.aegis.testnet",
+    "mpc_contract": "v1.signer-prod.testnet",
+    "sign_deposit_yocto": "1",
+    "sign_gas_tgas": 50,
+    "max_quote_age_blocks": "120"
+  },
   "contracts": [
     {
       "contract_id": "legacy-vault",
@@ -8,7 +18,10 @@
       "chain": "eip155:11155111",
       "address": "0x000000000000000000000000000000000000ae61",
       "derivation_path": "aegis/legacy-vault/eip155:11155111",
-      "gas_limit": "60000"
+      "gas_limit": "60000",
+      "max_fee_per_gas_cap": "200000000000",
+      "max_priority_fee_per_gas_cap": "5000000000",
+      "min_interval_blocks": "10"
     }
   ]
 }

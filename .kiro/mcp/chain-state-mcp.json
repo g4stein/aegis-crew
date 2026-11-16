@@ -113,7 +113,11 @@
           "contract_id": { "type": "string" },
           "mitigation_id": { "type": "string" },
           "refusal_reason": {
-            "enum": ["not_allowlisted", "breach_not_current", "already_paused", "mitigation_in_flight", "state_too_old", "signer_unavailable"]
+            "enum": ["not_allowlisted", "breach_not_current", "already_paused", "mitigation_in_flight", "state_too_old", "signer_unavailable", "guard_rejected"]
+          },
+          "guard_reason": {
+            "description": "Set when refusal_reason is guard_rejected: the Aegis Guard contract's rejection code.",
+            "enum": ["not_sentinel", "invalid_id", "not_allowlisted", "mitigation_in_flight", "duplicate_breach", "rate_limited", "no_fee_quote", "fee_quote_stale", "target_mismatch", "chain_mismatch", "selector_mismatch", "nonzero_value", "access_list_not_empty", "fee_quote_invalid", "fee_above_cap", "insufficient_balance"]
           },
           "payload": {
             "type": "object",
@@ -136,7 +140,10 @@
             "properties": {
               "mpc_contract": { "type": "string", "examples": ["v1.signer-prod.testnet"] },
               "derivation_path": { "type": "string" },
-              "near_tx_hash": { "type": "string" }
+              "near_tx_hash": { "type": "string" },
+              "guard_contract": { "type": "string", "description": "NEAR account of the Aegis Guard contract that built the transaction and called MPC sign." },
+              "deposit_yoctonear": { "type": "string", "pattern": "^[0-9]+$", "description": "Sign deposit the guard attached from its own balance." },
+              "guard_checks": { "type": "array", "items": { "type": "string" }, "description": "On-chain checks the guard ran, in order." }
             }
           },
           "timings_ms": {

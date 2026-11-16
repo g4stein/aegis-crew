@@ -1,0 +1,27 @@
+[package]
+name = "aegis-guard"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.86"
+description = "NEAR contract that builds pause() transactions for allowlisted EVM contracts and asks NEAR Chain Signatures to sign them. The Sentinel's function-call key can only pass contract_id and breach_id."
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# 5.27.0 is the newest release whose MSRV (1.86) fits the toolchain here (1.92); 5.28+ needs 1.93.
+near-sdk = "=5.27.0"
+aegis-pause-tx = { path = "../pause-tx" }
+hex = "0.4"
+
+[dev-dependencies]
+near-sdk = { version = "=5.27.0", features = ["unit-testing"] }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true

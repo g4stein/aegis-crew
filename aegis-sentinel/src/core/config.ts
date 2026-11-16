@@ -8,6 +8,12 @@ import { err, ok, type Result } from './result';
 
 export interface GuardedEntry {
   readonly guarded: GuardedContract;
+  /** Aegis Guard limits for this contract (enforced on-chain). */
+  readonly limits: {
+    readonly maxFeePerGasCap: bigint;
+    readonly maxPriorityFeePerGasCap: bigint;
+    readonly minIntervalBlocks: bigint;
+  };
   /** CAIP-2 chain ID, e.g. "eip155:11155111". */
   readonly chain: string;
   /** Contract name in the Forge output, e.g. "LegacyVault". */
@@ -91,12 +97,17 @@ export function parseGuardedConfig(
     if (!address || !ADDRESS.test(address)) return err(`${at}.address must be a 20-byte hex address`);
     if (!path || path.length > 128) return err(`${at}.derivation_path is required (max 128 chars)`);
     if (!gas || !DECIMAL.test(gas)) return err(`${at}.gas_limit must be a decimal string`);
+    const caps = ['max_fee_per_gas_cap', 'max_priority_fee_per_gas_cap', 'min_interval_blocks'].map((k) => str(c, k));
+    if (caps.some((v) => !v || !/^[0-9]{1,40}$/.test(v) || BigInt(v) === 0n)) {
+      return err(`${at}: max_fee_per_gas_cap, max_priority_fee_per_gas_cap and min_interval_blocks must be positive decimal strings`);
+    }
     const f = files[file];
     if (!f) return err(`${at}: invariants file ${file} was not loaded`);
     const reg = registryFrom(file, forgeContract, f.json);
     if (!reg.ok) return reg;
     out.push({
       guarded: { contractId, chainId: BigInt(chainMatch[1]!), address: address as Address, derivationPath: path, gasLimit: BigInt(gas) },
+      limits: { maxFeePerGasCap: BigInt(caps[0]!), maxPriorityFeePerGasCap: BigInt(caps[1]!), minIntervalBlocks: BigInt(caps[2]!) },
       chain,
       forgeContract,
       registry: reg.value.registry,
@@ -104,4 +115,34 @@ export function parseGuardedConfig(
     });
   }
   return ok(out);
+}
+
+/** Aegis Guard deployment settings from the guarded config's `guard` object. */
+export interface GuardSettings {
+  readonly account: string;
+  readonly owner: string;
+  readonly sentinel: string;
+  readonly feeOracle: string;
+  readonly mpcContract: string;
+  readonly signDepositYocto: bigint;
+  readonly signGasTgas: number;
+  readonly maxQuoteAgeBlocks: bigint;
+}
+
+const NEAR_ACCOUNT = /^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
+
+export function parseGuardSettings(raw: unknown): Result<GuardSettings, string> {
+  const at = 'guarded config: guard';
+  if (!isObj(raw) || !isObj(raw.guard)) return err(`${at} is required`);
+  const g = raw.guard;
+  const accounts = ['account', 'owner', 'sentinel', 'fee_oracle', 'mpc_contract'].map((k) => str(g, k));
+  if (accounts.some((a) => !a || !NEAR_ACCOUNT.test(a))) return err(`${at}: account, owner, sentinel, fee_oracle and mpc_contract must be NEAR account IDs`);
+  const deposit = str(g, 'sign_deposit_yocto');
+  const age = str(g, 'max_quote_age_blocks');
+  const gas = g.sign_gas_tgas;
+  if (!deposit || !/^[0-9]{1,40}$/.test(deposit) || BigInt(deposit) < 1n) return err(`${at}.sign_deposit_yocto must be >= 1`);
+  if (typeof gas !== 'number' || !Number.isInteger(gas) || gas < 15) return err(`${at}.sign_gas_tgas must be an integer >= 15 (MPC minimum)`);
+  if (!age || !/^[0-9]{1,20}$/.test(age) || BigInt(age) === 0n) return err(`${at}.max_quote_age_blocks must be positive`);
+  const [account, owner, sentinel, feeOracle, mpcContract] = accounts as [string, string, string, string, string];
+  return ok({ account, owner, sentinel, feeOracle, mpcContract, signDepositYocto: BigInt(deposit), signGasTgas: gas, maxQuoteAgeBlocks: BigInt(age) });
 }

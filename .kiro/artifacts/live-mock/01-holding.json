@@ -11,32 +11,38 @@
   },
   "events": [
     {
-      "seq": 5,
-      "atMs": 1794840711676,
+      "seq": 6,
+      "atMs": 1794846564508,
       "level": "info",
-      "message": "dashboard and API on http://127.0.0.1:19279"
+      "message": "dashboard and API on http://127.0.0.1:19289"
     },
     {
-      "seq": 4,
-      "atMs": 1794840711671,
+      "seq": 5,
+      "atMs": 1794846564503,
       "level": "info",
       "message": "connected to chain-state MCP server (stdio, mode mock)"
     },
     {
-      "seq": 3,
-      "atMs": 1794840711660,
+      "seq": 4,
+      "atMs": 1794846564491,
       "level": "info",
       "message": "mcp: ready (mode mock, 3 tools from .kiro/mcp/chain-state-mcp.json)"
     },
     {
-      "seq": 2,
-      "atMs": 1794840711659,
+      "seq": 3,
+      "atMs": 1794846564490,
       "level": "info",
       "message": "mcp: guarding legacy-vault (eip155:11155111 0x000000000000000000000000000000000000ae61); invariants from aegis-forge/output/legacy-vault.invariants.json sha256 11eadab9733d"
     },
     {
+      "seq": 2,
+      "atMs": 1794846564490,
+      "level": "info",
+      "message": "mcp: aegis-guard (mock NEAR): aegis-guard.testnet, balance 5000000000000000000000000 yoctoNEAR; sentinel sentinel.aegis.testnet; MPC v1.signer-prod.testnet"
+    },
+    {
       "seq": 1,
-      "atMs": 1794840711385,
+      "atMs": 1794846564210,
       "level": "info",
       "message": "guarding legacy-vault: invariants from aegis-forge/output/legacy-vault.invariants.json (Forge, source sha256 0050f9fe48b7…)"
     }
@@ -47,7 +53,7 @@
       "chain": "eip155:11155111",
       "address": "0x000000000000000000000000000000000000ae61",
       "block_number": "7340112",
-      "read_at_ms": 1794840711674,
+      "read_at_ms": 1794846564505,
       "paused": false,
       "invariants": [
         {

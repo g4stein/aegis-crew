@@ -6,8 +6,10 @@
 //! encoder must match byte for byte (design.md, Correctness Properties).
 
 use omni_transaction::evm::types::Signature;
-use omni_transaction::evm::EVMTransaction;
 use sha3::{Digest, Keccak256};
+
+/// Re-exported so the guard contract can inspect the transaction it built.
+pub use omni_transaction::evm::EVMTransaction;
 
 /// `bytes4(keccak256("pause()"))`.
 pub const PAUSE_SELECTOR: [u8; 4] = [0x84, 0x56, 0xcb, 0x59];
@@ -53,7 +55,11 @@ pub fn unsigned_bytes(p: &PauseParams) -> Vec<u8> {
 
 /// The 32-byte hash passed to the MPC `sign` method.
 pub fn signing_hash(p: &PauseParams) -> [u8; 32] {
-    Keccak256::digest(unsigned_bytes(p)).into()
+    keccak256(&unsigned_bytes(p))
+}
+
+pub fn keccak256(bytes: &[u8]) -> [u8; 32] {
+    Keccak256::digest(bytes).into()
 }
 
 /// RLP integers must not have leading zero bytes. `omni-transaction` appends `r` and `s`

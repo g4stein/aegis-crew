@@ -6,11 +6,11 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import Ajv2020, { type ValidateFunction } from 'ajv/dist/2020.js';
-import { config as loadDotenv } from 'dotenv';
 import { readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { encodeBroadcastResult, encodeChainReadout, encodeMitigationStatus } from '../../src/core/wire';
-import { loadGuardedConfig, REPO_ROOT } from '../../src/adapters/config/load-guarded';
+import { loadGuardedConfig, loadGuardSettings, REPO_ROOT } from '../../src/adapters/config/load-guarded';
+import { prepareEnv } from './env';
 import { MockChain, type ChainFixture } from './mock-chain';
 
 const log = (msg: string) => process.stderr.write(`[chain-state] ${msg}\n`);
@@ -32,8 +32,10 @@ const intEnv = (name: string, fallback: number) => {
 const fail = (message: string): ToolResult => ({ content: [{ type: 'text', text: message }], isError: true });
 
 export async function startChainStateServer(): Promise<void> {
-  // .env supplies signer settings for live mode. Existing environment variables win.
-  loadDotenv({ path: resolve(REPO_ROOT, '.env'), quiet: true });
+  // .env supplies signer settings for live mode. Real environment values win; unexpanded
+  // "${VAR}" placeholders from the MCP host count as unset, so .env is used instead.
+  const prepared = prepareEnv(process.env, resolve(REPO_ROOT, '.env'));
+  if (prepared.unset.length > 0) log(`ignored unexpanded placeholders for ${prepared.unset.join(', ')}; using .env or unset`);
   const mode = process.env.AEGIS_CHAIN_MODE ?? 'mock';
 
   const schemaPath = fromRoot(process.env.AEGIS_TOOL_SCHEMA ?? '.kiro/mcp/chain-state-mcp.json');
@@ -46,12 +48,16 @@ export async function startChainStateServer(): Promise<void> {
 
   let chain: MockChain | undefined;
   if (mode === 'mock') {
-    const entries = loadGuardedConfig(process.env.AEGIS_GUARDED_CONFIG ? fromRoot(process.env.AEGIS_GUARDED_CONFIG) : undefined);
+    const configPath = process.env.AEGIS_GUARDED_CONFIG ? fromRoot(process.env.AEGIS_GUARDED_CONFIG) : undefined;
+    const entries = loadGuardedConfig(configPath);
     if (!entries.ok) throw new Error(entries.error);
+    const settings = loadGuardSettings(configPath);
+    if (!settings.ok) throw new Error(settings.error);
     const fixture = JSON.parse(readFileSync(fromRoot(process.env.AEGIS_MOCK_FIXTURE ?? 'aegis-sentinel/mcp/fixtures/mock-chain.json'), 'utf8')) as ChainFixture;
     const breachAt = process.env.AEGIS_MOCK_BREACH_AT_MS;
     chain = new MockChain(
       entries.value,
+      settings.value,
       fixture,
       {
         ...(breachAt !== undefined && breachAt !== '' ? { breachAtMs: intEnv('AEGIS_MOCK_BREACH_AT_MS', 15_000) } : {}),

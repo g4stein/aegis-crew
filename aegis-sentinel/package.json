@@ -13,7 +13,9 @@
     "audit:ui": "node ../scripts/hooks/ui-audit.mjs --all",
     "test:pbt": "vitest run tests/pbt",
     "test:e2e": "vitest run tests/e2e",
-    "vectors": "cd contracts/pause-tx && cargo test --release && cargo run --release --quiet --bin vectors > ../../tests/vectors/eip1559-pause.json"
+    "vectors": "cd contracts/pause-tx && cargo test --release && cargo run --release --quiet --bin vectors > ../../tests/vectors/eip1559-pause.json",
+    "test:guard": "cd contracts/aegis-guard && cargo test -- --test-threads=1",
+    "guard-vectors": "cd contracts/aegis-guard && AEGIS_WRITE_GUARD_VECTORS=$PWD/../../tests/vectors/aegis-guard.json cargo test conformance_vectors"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.3.0",

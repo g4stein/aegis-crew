@@ -1,7 +1,9 @@
 // End-to-end: runtime -> MCP stdio -> chain-state server (mock) -> pause confirmed.
 // Not part of tests/pbt: it spawns processes and opens a local port. Run: npm run test:e2e
 import { spawn, type ChildProcess } from 'node:child_process';
-import { resolve } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { McpChainClient } from '../../src/adapters/chain/mcp-chain-client';
 import { decodeSnapshot } from '../../src/core/wire';
@@ -77,6 +79,15 @@ describe('live-mock pipeline', () => {
     expect(stderr.match(/fast path detect-to-submit/g)?.length).toBe(1);
   }, 30_000);
 
+  it('routes the request through the Aegis Guard, which pays the deposit (Req 2.5, 2.7)', () => {
+    expect(stderr).toMatch(/aegis-guard: request_pause\(legacy-vault, brk_\d+\) accepted at NEAR block \d+: 13 checks passed/);
+    expect(stderr).toMatch(/paid 1 yoctoNEAR sign deposit from guard balance \(5000000000000000000000000 yoctoNEAR -> 4999999999999999999999999 yoctoNEAR\)/);
+    expect(stderr).toMatch(/v1\.signer-prod\.testnet\.sign\(payload 0x[0-9a-f]{12}…, path aegis\/legacy-vault\/eip155:11155111, domain 0, 50 TGas\)/);
+    expect(stderr).toMatch(/on_signature -> signed \(mock MPC; r has a leading zero byte, encoded canonically/);
+    expect(stderr).toMatch(/aegis-guard\.testnet enforced 13 checks and paid 1 yoctoNEAR/);
+    expect(stderr).not.toMatch(/BUG:/);
+  });
+
   it('rejects restart requests without the custom header', async () => {
     const r = await fetch(`${BASE}/api/restart`, { method: 'POST' });
     expect(r.status).toBe(403);
@@ -106,6 +117,36 @@ describe('chain-state MCP server contract', () => {
     expect(dry.ok && dry.value.status).toBe('dry_run');
     if (!dry.ok) return;
     expect(dry.value.payload).toMatchObject({ to: '0x000000000000000000000000000000000000ae61', data: '0x8456cb59', value: '0', chain: 'eip155:11155111' });
+    const after = await client.readState();
+    expect(after.ok && after.value.contracts[0]!.mitigation.state).toBe('none');
+    expect(dry.value.signRequest).toMatchObject({ guardContract: 'aegis-guard.testnet', depositYoctonear: '1' });
+    expect(dry.value.signRequest?.guardChecks).toHaveLength(13);
+  });
+});
+
+describe('Aegis Guard rejections over MCP', () => {
+  // Fee quotes above the guard's cap (200 gwei) must be refused on-chain, not just by the runtime.
+  const dir = mkdtempSync(join(tmpdir(), 'aegis-fx-'));
+  const fixture = JSON.parse(readFileSync(resolve(SENTINEL, 'mcp/fixtures/mock-chain.json'), 'utf8')) as { contracts: Record<string, { prefetch: Record<string, string> }> };
+  fixture.contracts['legacy-vault']!.prefetch.max_fee_per_gas = '250000000000';
+  const path = join(dir, 'high-fee.json');
+  writeFileSync(path, JSON.stringify(fixture));
+  const client = new McpChainClient({ env: { ...FAST, AEGIS_MOCK_BREACH_AT_MS: '200', AEGIS_MOCK_FIXTURE: path } });
+  beforeAll(async () => client.connect(), 30_000);
+  afterAll(async () => {
+    await client.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('refuses with guard_rejected / fee_above_cap and signs nothing', async () => {
+    await new Promise((r) => setTimeout(r, 500));
+    const read = await client.readState();
+    const breach = read.ok ? read.value.contracts[0]!.invariants.find((i) => i.status === 'breached') : undefined;
+    expect(breach?.breachId).toBeDefined();
+    for (const dryRun of [true, false]) {
+      const r = await client.requestPause('legacy-vault', breach!.breachId!, dryRun);
+      expect(r.ok && r.value).toMatchObject({ status: 'refused', refusalReason: 'guard_rejected', guardReason: 'fee_above_cap' });
+    }
     const after = await client.readState();
     expect(after.ok && after.value.contracts[0]!.mitigation.state).toBe('none');
   });

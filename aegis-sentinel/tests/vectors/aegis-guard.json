@@ -1,0 +1,766 @@
+{
+  "generator": "aegis-guard unit tests (near-sdk 5.27.0 mocked blockchain)",
+  "config": {
+    "owner": "owner.testnet",
+    "sentinel": "sentinel.testnet",
+    "fee_oracle": "oracle.testnet",
+    "mpc_contract": "v1.signer-prod.testnet",
+    "guard_account": "aegis-guard.testnet",
+    "sign_deposit_yocto": "1",
+    "sign_gas_tgas": 50,
+    "max_quote_age_blocks": 120
+  },
+  "entries": [
+    {
+      "contract_id": "legacy-vault",
+      "chain_id": "11155111",
+      "address": "0x000000000000000000000000000000000000ae61",
+      "derivation_path": "aegis/legacy-vault/eip155:11155111",
+      "gas_limit": "60000",
+      "max_fee_per_gas_cap": "200000000000",
+      "max_priority_fee_per_gas_cap": "5000000000",
+      "min_interval_blocks": "10"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "happy path, duplicate, rate limit",
+      "steps": [
+        {
+          "op": "update_fee_quote",
+          "block": 100,
+          "predecessor": "oracle.testnet",
+          "args": {
+            "contract_id": "legacy-vault",
+            "nonce": "7",
+            "max_fee_per_gas": "30000000000",
+            "max_priority_fee_per_gas": "1500000000"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "op": "preview_pause",
+          "block": 101,
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": true,
+            "reason": null,
+            "mitigation_id": "legacy-vault_brk_a",
+            "unsigned_tx": "0x02ef83aa36a7078459682f008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c0",
+            "payload_hash": "0xef17b99b2515f0744b19f68b9ed3861acffbbce9edad4c57203bab5864931afe",
+            "deposit_yocto": "1",
+            "checks": [
+              "ids_valid",
+              "allowlisted",
+              "not_in_flight",
+              "not_duplicate",
+              "rate_limit",
+              "fee_quote_present",
+              "fee_quote_fresh",
+              "target_is_allowlisted_address",
+              "chain_matches",
+              "calldata_is_pause_selector",
+              "value_is_zero",
+              "fee_within_cap",
+              "guard_balance_covers_deposit"
+            ]
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 101,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": true,
+            "mitigation_id": "legacy-vault_brk_a",
+            "unsigned_tx": "0x02ef83aa36a7078459682f008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c0",
+            "payload_hash": "0xef17b99b2515f0744b19f68b9ed3861acffbbce9edad4c57203bab5864931afe",
+            "sign_call": {
+              "receiver": "v1.signer-prod.testnet",
+              "method": "sign",
+              "deposit_yocto": "1",
+              "gas_tgas": 50,
+              "args": {
+                "request": {
+                  "path": "aegis/legacy-vault/eip155:11155111",
+                  "payload_v2": {
+                    "Ecdsa": "ef17b99b2515f0744b19f68b9ed3861acffbbce9edad4c57203bab5864931afe"
+                  },
+                  "domain_id": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 102,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_b"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "mitigation_in_flight"
+          }
+        },
+        {
+          "op": "on_signature",
+          "block": 103,
+          "mitigation_id": "legacy-vault_brk_a",
+          "result": {
+            "scheme": "Secp256k1",
+            "big_r": {
+              "affine_point": "0300005a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+            },
+            "s": {
+              "scalar": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b"
+            },
+            "recovery_id": 1
+          },
+          "expect": {
+            "status": "signed",
+            "signed_tx": "0x02f87083aa36a7078459682f008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c0019e5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5aa02b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+            "signed_tx_hash": "0x372d65158cc219a371f758129474afe4bfbd6d0ccd0cda8a692608930ee069fb",
+            "error": null
+          }
+        },
+        {
+          "op": "preview_pause",
+          "block": 104,
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "duplicate_breach",
+            "mitigation_id": null,
+            "unsigned_tx": null,
+            "payload_hash": null,
+            "deposit_yocto": "1",
+            "checks": []
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 105,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_b"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "rate_limited"
+          }
+        },
+        {
+          "op": "update_fee_quote",
+          "block": 110,
+          "predecessor": "oracle.testnet",
+          "args": {
+            "contract_id": "legacy-vault",
+            "nonce": "8",
+            "max_fee_per_gas": "31000000000",
+            "max_priority_fee_per_gas": "2000000000"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 111,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_b"
+          },
+          "expect": {
+            "ok": true,
+            "mitigation_id": "legacy-vault_brk_b",
+            "unsigned_tx": "0x02ef83aa36a7088477359400850737be760082ea6094000000000000000000000000000000000000ae6180848456cb59c0",
+            "payload_hash": "0x441e53a44a1237a12bc20f3c6066e00dad706817a31e3ab5a6a5b0d57490b7ff",
+            "sign_call": {
+              "receiver": "v1.signer-prod.testnet",
+              "method": "sign",
+              "deposit_yocto": "1",
+              "gas_tgas": 50,
+              "args": {
+                "request": {
+                  "path": "aegis/legacy-vault/eip155:11155111",
+                  "payload_v2": {
+                    "Ecdsa": "441e53a44a1237a12bc20f3c6066e00dad706817a31e3ab5a6a5b0d57490b7ff"
+                  },
+                  "domain_id": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "op": "on_signature",
+          "block": 112,
+          "mitigation_id": "legacy-vault_brk_b",
+          "result": {
+            "scheme": "Secp256k1",
+            "big_r": {
+              "affine_point": "027777777777777777777777777777777777777777777777777777777777777777"
+            },
+            "s": {
+              "scalar": "0044444444444444444444444444444444444444444444444444444444444444"
+            },
+            "recovery_id": 0
+          },
+          "expect": {
+            "status": "signed",
+            "signed_tx": "0x02f87183aa36a7088477359400850737be760082ea6094000000000000000000000000000000000000ae6180848456cb59c080a077777777777777777777777777777777777777777777777777777777777777779f44444444444444444444444444444444444444444444444444444444444444",
+            "signed_tx_hash": "0xdf205b61799d18e6596d335dfa4ee9066b60e8b875e3fce6d0d8fc16534f25b9",
+            "error": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "caller, allowlist, id, quote, fee and balance checks",
+      "steps": [
+        {
+          "op": "request_pause",
+          "block": 100,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "no_fee_quote"
+          }
+        },
+        {
+          "op": "update_fee_quote",
+          "block": 100,
+          "predecessor": "mallory.testnet",
+          "args": {
+            "contract_id": "legacy-vault",
+            "nonce": "0",
+            "max_fee_per_gas": "1",
+            "max_priority_fee_per_gas": "1"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "only the fee oracle"
+          }
+        },
+        {
+          "op": "update_fee_quote",
+          "block": 100,
+          "predecessor": "oracle.testnet",
+          "args": {
+            "contract_id": "other-token",
+            "nonce": "0",
+            "max_fee_per_gas": "1",
+            "max_priority_fee_per_gas": "1"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "not_allowlisted"
+          }
+        },
+        {
+          "op": "update_fee_quote",
+          "block": 100,
+          "predecessor": "oracle.testnet",
+          "args": {
+            "contract_id": "legacy-vault",
+            "nonce": "3",
+            "max_fee_per_gas": "30000000000",
+            "max_priority_fee_per_gas": "1000000000"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 101,
+          "predecessor": "mallory.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "not_sentinel"
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 101,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "other-token",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "not_allowlisted"
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 101,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk/a"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "invalid_id"
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 221,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "fee_quote_stale"
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 101,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "0",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "insufficient_balance"
+          }
+        },
+        {
+          "op": "update_fee_quote",
+          "block": 101,
+          "predecessor": "oracle.testnet",
+          "args": {
+            "contract_id": "legacy-vault",
+            "nonce": "3",
+            "max_fee_per_gas": "201000000000",
+            "max_priority_fee_per_gas": "1000000000"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 102,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "fee_above_cap"
+          }
+        },
+        {
+          "op": "update_fee_quote",
+          "block": 102,
+          "predecessor": "oracle.testnet",
+          "args": {
+            "contract_id": "legacy-vault",
+            "nonce": "3",
+            "max_fee_per_gas": "30000000000",
+            "max_priority_fee_per_gas": "6000000000"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 103,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "fee_above_cap"
+          }
+        },
+        {
+          "op": "update_fee_quote",
+          "block": 103,
+          "predecessor": "oracle.testnet",
+          "args": {
+            "contract_id": "legacy-vault",
+            "nonce": "3",
+            "max_fee_per_gas": "1000000000",
+            "max_priority_fee_per_gas": "2000000000"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 104,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "fee_quote_invalid"
+          }
+        },
+        {
+          "op": "update_fee_quote",
+          "block": 104,
+          "predecessor": "oracle.testnet",
+          "args": {
+            "contract_id": "legacy-vault",
+            "nonce": "3",
+            "max_fee_per_gas": "200000000000",
+            "max_priority_fee_per_gas": "5000000000"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 105,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": true,
+            "mitigation_id": "legacy-vault_brk_a",
+            "unsigned_tx": "0x02f083aa36a70385012a05f200852e90edd00082ea6094000000000000000000000000000000000000ae6180848456cb59c0",
+            "payload_hash": "0x9bf86a437e528317c00fea28e3c3104d2a63464c63865e57781c15a9853f6166",
+            "sign_call": {
+              "receiver": "v1.signer-prod.testnet",
+              "method": "sign",
+              "deposit_yocto": "1",
+              "gas_tgas": 50,
+              "args": {
+                "request": {
+                  "path": "aegis/legacy-vault/eip155:11155111",
+                  "payload_v2": {
+                    "Ecdsa": "9bf86a437e528317c00fea28e3c3104d2a63464c63865e57781c15a9853f6166"
+                  },
+                  "domain_id": 0
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "quote age boundary (120 blocks allowed, 121 stale)",
+      "steps": [
+        {
+          "op": "update_fee_quote",
+          "block": 100,
+          "predecessor": "oracle.testnet",
+          "args": {
+            "contract_id": "legacy-vault",
+            "nonce": "1",
+            "max_fee_per_gas": "30000000000",
+            "max_priority_fee_per_gas": "1000000000"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 221,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": false,
+            "reason": "fee_quote_stale"
+          }
+        },
+        {
+          "op": "preview_pause",
+          "block": 220,
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": true,
+            "reason": null,
+            "mitigation_id": "legacy-vault_brk_a",
+            "unsigned_tx": "0x02ef83aa36a701843b9aca008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c0",
+            "payload_hash": "0x9027b73ae098f824a58b093a6eaacd8fb351490bef2abeed530e3d1948226332",
+            "deposit_yocto": "1",
+            "checks": [
+              "ids_valid",
+              "allowlisted",
+              "not_in_flight",
+              "not_duplicate",
+              "rate_limit",
+              "fee_quote_present",
+              "fee_quote_fresh",
+              "target_is_allowlisted_address",
+              "chain_matches",
+              "calldata_is_pause_selector",
+              "value_is_zero",
+              "fee_within_cap",
+              "guard_balance_covers_deposit"
+            ]
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 220,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": true,
+            "mitigation_id": "legacy-vault_brk_a",
+            "unsigned_tx": "0x02ef83aa36a701843b9aca008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c0",
+            "payload_hash": "0x9027b73ae098f824a58b093a6eaacd8fb351490bef2abeed530e3d1948226332",
+            "sign_call": {
+              "receiver": "v1.signer-prod.testnet",
+              "method": "sign",
+              "deposit_yocto": "1",
+              "gas_tgas": 50,
+              "args": {
+                "request": {
+                  "path": "aegis/legacy-vault/eip155:11155111",
+                  "payload_v2": {
+                    "Ecdsa": "9027b73ae098f824a58b093a6eaacd8fb351490bef2abeed530e3d1948226332"
+                  },
+                  "domain_id": 0
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "mpc failure and bad signatures",
+      "steps": [
+        {
+          "op": "update_fee_quote",
+          "block": 100,
+          "predecessor": "oracle.testnet",
+          "args": {
+            "contract_id": "legacy-vault",
+            "nonce": "0",
+            "max_fee_per_gas": "30000000000",
+            "max_priority_fee_per_gas": "1000000000"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 101,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_a"
+          },
+          "expect": {
+            "ok": true,
+            "mitigation_id": "legacy-vault_brk_a",
+            "unsigned_tx": "0x02ef83aa36a780843b9aca008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c0",
+            "payload_hash": "0x064c552685ec10d6a1913c28e1f44d070ad04c7531075ae1fef19dfecdc67aac",
+            "sign_call": {
+              "receiver": "v1.signer-prod.testnet",
+              "method": "sign",
+              "deposit_yocto": "1",
+              "gas_tgas": 50,
+              "args": {
+                "request": {
+                  "path": "aegis/legacy-vault/eip155:11155111",
+                  "payload_v2": {
+                    "Ecdsa": "064c552685ec10d6a1913c28e1f44d070ad04c7531075ae1fef19dfecdc67aac"
+                  },
+                  "domain_id": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "op": "on_signature",
+          "block": 102,
+          "mitigation_id": "legacy-vault_brk_a",
+          "result": "failed",
+          "expect": {
+            "status": "failed",
+            "signed_tx": null,
+            "signed_tx_hash": null,
+            "error": "mpc_sign_failed"
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 111,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_b"
+          },
+          "expect": {
+            "ok": true,
+            "mitigation_id": "legacy-vault_brk_b",
+            "unsigned_tx": "0x02ef83aa36a780843b9aca008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c0",
+            "payload_hash": "0x064c552685ec10d6a1913c28e1f44d070ad04c7531075ae1fef19dfecdc67aac",
+            "sign_call": {
+              "receiver": "v1.signer-prod.testnet",
+              "method": "sign",
+              "deposit_yocto": "1",
+              "gas_tgas": 50,
+              "args": {
+                "request": {
+                  "path": "aegis/legacy-vault/eip155:11155111",
+                  "payload_v2": {
+                    "Ecdsa": "064c552685ec10d6a1913c28e1f44d070ad04c7531075ae1fef19dfecdc67aac"
+                  },
+                  "domain_id": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "op": "on_signature",
+          "block": 112,
+          "mitigation_id": "legacy-vault_brk_b",
+          "result": {
+            "scheme": "Secp256k1",
+            "big_r": {
+              "affine_point": "0300005a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+            },
+            "s": {
+              "scalar": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b"
+            },
+            "recovery_id": 0
+          },
+          "expect": {
+            "status": "failed",
+            "signed_tx": null,
+            "signed_tx_hash": null,
+            "error": "recovery_id_mismatch"
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 121,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_c"
+          },
+          "expect": {
+            "ok": true,
+            "mitigation_id": "legacy-vault_brk_c",
+            "unsigned_tx": "0x02ef83aa36a780843b9aca008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c0",
+            "payload_hash": "0x064c552685ec10d6a1913c28e1f44d070ad04c7531075ae1fef19dfecdc67aac",
+            "sign_call": {
+              "receiver": "v1.signer-prod.testnet",
+              "method": "sign",
+              "deposit_yocto": "1",
+              "gas_tgas": 50,
+              "args": {
+                "request": {
+                  "path": "aegis/legacy-vault/eip155:11155111",
+                  "payload_v2": {
+                    "Ecdsa": "064c552685ec10d6a1913c28e1f44d070ad04c7531075ae1fef19dfecdc67aac"
+                  },
+                  "domain_id": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "op": "on_signature",
+          "block": 122,
+          "mitigation_id": "legacy-vault_brk_c",
+          "result": {
+            "scheme": "Secp256k1",
+            "big_r": {
+              "affine_point": "0300005a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+            },
+            "s": {
+              "scalar": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b"
+            },
+            "recovery_id": 1
+          },
+          "expect": {
+            "status": "signed",
+            "signed_tx": "0x02f87083aa36a780843b9aca008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c0019e5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5aa02b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+            "signed_tx_hash": "0x72c2c89adfb9534b7b0e3456cc65d9c5e32230cac71e8ddf9af4f982d9c3bbf4",
+            "error": null
+          }
+        }
+      ]
+    }
+  ]
+}

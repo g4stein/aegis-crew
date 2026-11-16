@@ -184,34 +184,65 @@ The runtime records each timestamp. A testnet benchmark (task 11) checks the bud
 
 ### Aegis Guard contract (`aegis-sentinel/contracts/aegis-guard/`, Rust)
 
+Implemented with `near-sdk` 5.27.0 (the newest release that builds on the Rust 1.92 toolchain here). It depends on `contracts/pause-tx` for the transaction encoding.
+
 ```rust
-pub struct GuardedContract {
-    contract_id: String, chain_id: u64, address: [u8; 20],
-    derivation_path: String, gas_limit: u64, max_fee_cap: u128,
+pub struct GuardedContract {          // owner-managed allowlist entry
+    contract_id: String, chain_id: U64, address: String /* 0x…40 hex */,
+    derivation_path: String, gas_limit: U64,
+    max_fee_per_gas_cap: U128, max_priority_fee_per_gas_cap: U128, min_interval_blocks: U64,
 }
+pub struct FeeQuote { nonce: U64, max_fee_per_gas: U128, max_priority_fee_per_gas: U128, quoted_at_block: U64 }
 
 #[near] impl AegisGuard {
-    #[init] pub fn new(owner: AccountId, sentinel: AccountId, mpc: AccountId) -> Self;
-    // Owner only (cold, full-access key held by a human).
+    #[init] pub fn new(owner, sentinel, fee_oracle: Option<AccountId>, mpc_contract) -> Self;
+    // Owner (cold full-access key)
     pub fn set_guarded(&mut self, entry: GuardedContract);
-    pub fn remove_guarded(&mut self, contract_id: String);
-    // Sentinel only (predecessor check). The function-call key is restricted to this method.
-    pub fn request_pause(&mut self, contract_id: String, nonce: U64,
-                         max_fee_per_gas: U128, max_priority_fee_per_gas: U128) -> Promise;
-    #[private] pub fn on_signature(&mut self, contract_id: String, #[callback_result] r: ...) -> SignedPause;
+    pub fn remove_guarded(&mut self, contract_id: String);          // refused while in flight
+    pub fn set_sentinel / set_fee_oracle / set_sign_config(...);     // deposit >= 1 yN, gas >= 15 TGas
+    // Fee oracle (its own function-call key, restricted to this method)
+    pub fn update_fee_quote(&mut self, contract_id, nonce: U64, max_fee_per_gas: U128, max_priority_fee_per_gas: U128);
+    // Sentinel (function-call key restricted to this method; non-payable, 0 deposit)
+    pub fn request_pause(&mut self, contract_id: String, breach_id: String) -> Promise;
+    #[private] pub fn on_signature(&mut self, mitigation_id: String,
+        #[callback_result] r: Result<SignatureResponse, PromiseError>) -> Option<String /* signed tx */>;
+    // Views
+    pub fn preview_pause(&self, contract_id, breach_id) -> PausePreview;
+    pub fn get_config / get_guarded / list_guarded / get_fee_quote / get_mitigation / get_active_mitigation;
 }
 ```
 
-`request_pause` makes these checks:
+`request_pause` takes only `contract_id` and `breach_id`. It checks the caller is `sentinel` (else `not_sentinel`), then runs `plan()`, which reads state only and returns the first failure in this order:
 
-- The caller is the `sentinel` account.
-- The contract is on the allowlist.
-- Fees are no higher than `max_fee_cap`.
-- The contract is not inside its rate-limit window (one request per contract per `min_interval_blocks`).
+| # | Check | Rejection |
+|---|---|---|
+| 1 | IDs match `[a-z0-9-]{1,64}` / `[A-Za-z0-9_-]{1,63}` | `invalid_id` |
+| 2 | Contract is on the allowlist | `not_allowlisted` |
+| 3 | No mitigation pending for the contract | `mitigation_in_flight` |
+| 4 | `<contract_id>_<breach_id>` not seen before | `duplicate_breach` |
+| 5 | At least `min_interval_blocks` since the last request | `rate_limited` |
+| 6 | A fee quote exists | `no_fee_quote` |
+| 7 | Quote at most `max_quote_age_blocks` (120) old | `fee_quote_stale` |
+| 8 | Built tx `to` equals the allowlisted address | `target_mismatch` |
+| 9 | Built tx `chain_id` equals the entry | `chain_mismatch` |
+| 10 | Built tx calldata is exactly `0x8456cb59` | `selector_mismatch` |
+| 11 | Built tx value is 0, access list empty | `nonzero_value`, `access_list_not_empty` |
+| 12 | priority fee <= max fee; both <= owner caps | `fee_quote_invalid`, `fee_above_cap` |
+| 13 | Balance minus storage cost covers the sign deposit | `insufficient_balance` |
 
-It then builds the EIP-1559 transaction itself: fixed `to`, `value = 0`, `data = 0x8456cb59`, and the entry's `chain_id` and `gas_limit`. It hashes the transaction with keccak256 and calls the MPC contract's `sign` method with the hash, the entry's `derivation_path`, and `domain_id = 0` (Secp256k1), attaching the required deposit from the guard's balance. Verify the exact `SignRequestArgs` shape against `near/mpc` `crates/contract/src/api/sign.rs` during implementation.
+Checks 8–12 run `enforce()` on the transaction the contract itself built with `pause_tx`. The contract always builds `pause()`, so they are defense in depth: a code or dependency change that altered the transaction would be refused, not signed. Only after every check passes does the method write state (mitigation `pending`, `active`, `last_request_block`), emit a NEP-297 `pause_requested` event, and call `sign` on the MPC contract:
 
-The caller cannot choose the calldata or the target address. A stolen Sentinel key can only pause allowlisted contracts, at a rate-limited pace, paying gas from its allowance.
+- args `{"request":{"path":<derivation_path>,"payload_v2":{"Ecdsa":<hex keccak256(unsigned_tx)>},"domain_id":0}}`, the shape in near/mpc's wire-format snapshot;
+- deposit 1 yoctoNEAR (`SIGN_DEPOSIT_YOCTONEAR`) paid from the guard's balance; 50 TGas (MPC requires at least 15);
+- then `on_signature` with 20 TGas.
+
+`on_signature` parses the MPC `SignatureResponse` (`scheme: "Secp256k1"`, hex `big_r.affine_point` and `s.scalar`, `recovery_id`), checks that `recovery_id` matches the point's prefix, and builds the signed transaction with `pause_tx::signed_bytes`, which strips leading zeros from `r` and `s`. A failed promise, an Ed25519 response, or a bad signature marks the mitigation `failed` with a reason. Either way the contract becomes free for the next request (subject to the rate limit).
+
+**Fee oracle.** The contract cannot see target-chain gas prices, so a separate oracle account posts `{nonce, max_fee_per_gas, max_priority_fee_per_gas}` quotes. They are not trusted: caps and staleness are checked at request time. A compromised oracle can at worst make requests fail, or set a fee no higher than the owner's cap.
+
+**Threat model.** A stolen Sentinel key can only call `request_pause`. It can pause allowlisted contracts, at most once per `min_interval_blocks`, at fees no higher than the caps, spending 1 yoctoNEAR of guard balance per request. It cannot choose a target, calldata, value, chain, or derivation path.
+
+**Mock mirror.** `src/core/guard.ts` is a pure TypeScript port with the same check order. The contract's unit tests write `tests/vectors/aegis-guard.json` by running scripted scenarios against the real contract in near-sdk's mocked blockchain; P20 replays every step through the mirror and requires identical outcomes (accept/reject reason, unsigned bytes, payload hash, sign-call args and deposit, signed bytes). The mock chain-state server runs the mirror, so LIVE-MOCK shows the guard enforcing its checks and paying the deposit.
 
 The derived EVM address (guard account + path) must hold the pause role on the guarded contract (Open Question 4).
 
@@ -219,9 +250,10 @@ The derived EVM address (guard account + path) must hold the pause role on the g
 
 This is the chain gateway: a stdio MCP server that serves the tool definitions in `.kiro/mcp/chain-state-mcp.json` verbatim and validates every input and output against them with Ajv. It has two clients: the Sentinel runtime (fast path) and the Kiro `aegis-sentinel` agent (supervision). Each spawns its own instance.
 
-- **Payload ownership.** `broadcast_mitigation_payload` accepts only `contract_id`, `breach_id`, and `dry_run`; extra arguments are rejected. The server builds the `pause()` transaction from `config/guarded.json`, runs the core gate, encodes it, and returns `unsigned_tx` and `payload_hash` plus the fields needed to re-encode it.
+- **Payload ownership.** `broadcast_mitigation_payload` accepts only `contract_id`, `breach_id`, and `dry_run`; extra arguments are rejected. The transaction is built by the Aegis Guard (in mock mode, its mirror): `dry_run` maps to `preview_pause`, a submission to `request_pause` as the Sentinel. The result carries `unsigned_tx`, `payload_hash`, the fields needed to re-encode them, and `sign_request.{guard_contract, deposit_yoctonear, guard_checks}`. A guard refusal returns `refusal_reason: "guard_rejected"` with `guard_reason` set to the contract's code.
+- **Env hardening.** Before loading `.env`, the server unsets any variable whose value is still an unexpanded `${...}` placeholder (`mcp/src/env.ts`), so a literal `"${AEGIS_SIGNER_KEY}"` passed by an MCP host can never override `.env`.
 - **Lifecycle.** The server drives the mitigation through the core state machine (`core/mitigation/fsm.ts`) and returns the Requirement 2.4 timestamps from `get_mitigation_status`.
-- **Mock mode** (`AEGIS_CHAIN_MODE=mock`, implemented). It reads `config/guarded.json`, the Forge invariants files it names, and `mcp/fixtures/mock-chain.json`, which scripts a reentrancy mis-credit 15 s after start. The MPC signer and target chain are simulated; signatures are not real. Timing overrides: `AEGIS_MOCK_BREACH_AT_MS`, `AEGIS_MOCK_SIGNATURE_MS`, `AEGIS_MOCK_BROADCAST_MS`, `AEGIS_MOCK_CONFIRM_MS`.
+- **Mock mode** (`AEGIS_CHAIN_MODE=mock`, implemented). It reads `config/guarded.json`, the Forge invariants files it names, and `mcp/fixtures/mock-chain.json`, which scripts a reentrancy mis-credit 15 s after start. The Aegis Guard runs as its conformance-tested mirror (a fee oracle posts quotes each mock NEAR block; the guard pays the deposit from a 5 NEAR mock balance). The MPC signer and target chain are simulated; signatures are deterministic and not real, with `r` forced to start with a zero byte so the canonical encoder is exercised on every run. Timing overrides: `AEGIS_MOCK_BREACH_AT_MS`, `AEGIS_MOCK_SIGNATURE_MS`, `AEGIS_MOCK_BROADCAST_MS`, `AEGIS_MOCK_CONFIRM_MS`.
 - **Live mode** (tasks 5–6) will call the Aegis Guard contract and the target chain. Its tools currently return errors.
 - **Secrets.** The server loads `.env` at startup (dotenv, `quiet`, existing variables win). In live mode it is the only process that reads `AEGIS_SIGNER_KEY`; the key never reaches the browser bundle or any agent's context. stdout carries MCP messages only; logs go to stderr.
 
@@ -380,6 +412,10 @@ Each property is a `fast-check` property in `<app>/tests/pbt/`, run 1,000 times 
 | P14 `forge-determinism` | `canonicalJson(toAstMap(x))` and the `plan` outputs are byte-identical across runs and key-insertion orders. | 3.12, 3.13 |
 | P15 `risk-detection` | Generated contracts with an injected R1–R4 pattern are flagged with the matching ID. Generated contracts without the pattern are not flagged for R1–R2. | 3.7 |
 | P16 `ears-only` | Every acceptance criterion line in the generated `requirements.md` matches one of the five EARS templates. | 3.6 |
+| P17 `fast-path-decision` | The runtime mitigates iff the state is fresh, the contract is unpaused and idle, and a recomputed (not reported) breach has an unsubmitted `breach_id`; stale state yields `reread`. | 2.1, 2.12–2.14 |
+| P18 `wire-roundtrip` | Snapshots, chain readouts, and broadcast results survive JSON losslessly; malformed amounts and states are rejected. | 2.17 |
+| P19 `guard-soundness` | The guard mirror accepts `request_pause` iff every on-chain check holds (independent oracle); rejection leaves state unchanged; `enforce` accepts only exact `pause()` to the allowlisted target and chain with value 0. | 2.7–2.9, 2.12 |
+| P20 `guard-conformance` | Replaying the Rust contract's scripted scenarios through the mirror gives identical outcomes, bytes, and sign calls. | 2.8, 2.9, 2.12, 2.15 |
 
 Cross-language check (not fast-check): `contracts/pause-tx` (Rust, `omni-transaction` 0.5.0) writes `tests/vectors/eip1559-pause.json`: 54 boundary cases plus 256 cases from a fixed-seed generator, including signatures with leading-zero `r`/`s`. `tests/pbt/eip1559-vectors.test.ts` asserts, for every vector, identical unsigned bytes, identical keccak signing hash, identical signed bytes, and a lossless decode. Regenerate with `npm run vectors` in `aegis-sentinel`.
 
@@ -405,9 +441,10 @@ Secrets: `AEGIS_SIGNER_KEY` is read once by the runtime and kept in memory. Logs
 
 ## Testing Strategy
 
-- **Property-based tests** (`vitest` + `fast-check`): P1–P16 in `aegis-sentinel/tests/pbt/` and `aegis-forge/tests/pbt/`. A shared setup file calls `fc.configureGlobal({ numRuns: 1000 })`. Failing seeds go into the test file as `examples` (see `architecture.md`).
+- **Property-based tests** (`vitest` + `fast-check`): P1–P20 in `aegis-sentinel/tests/pbt/` and `aegis-forge/tests/pbt/`. A shared setup file calls `fc.configureGlobal({ numRuns: 1000 })`. Failing seeds go into the test file as `examples` (see `architecture.md`).
 - **Pause transaction crate** (`cargo test` in `contracts/pause-tx`): `pause()` selector equals keccak, calldata and value fixed, leading-zero signature handling. Emits the cross-language vectors.
-- **Guard contract** (`cargo test`, `near-workspaces` sandbox): allowlist and predecessor checks, fee cap, rate limit. Depends on `contracts/pause-tx` for encoding.
+- **Guard contract** (`cargo test` in `contracts/aegis-guard`, near-sdk mocked blockchain, MPC mocked by inspecting the created receipt and calling `on_signature` directly): 18 tests covering the happy path (tx, deposit, gas, args), the callback and its leading-zero encoding, every rejection code, owner/oracle authorization, and the conformance-vector drift check. Ten deliberate mutations (selector, target, fee cap, rate limit, in-flight, caller, deposit, write-before-check, quote-age off-by-one, non-canonical r/s) each fail at least one test. A `near-workspaces` sandbox run needs the `wasm32-unknown-unknown` target, which this sandbox cannot install (read-only rustup); it remains task 5.3.
+- **Guard mirror** (`tests/pbt/guard.pbt.test.ts`): P19 `guard-soundness` (accept iff every rule holds, against an independently written oracle; state unchanged on rejection; enforce accepts only exact `pause()` to the target) and P20 `guard-conformance` (replays the Rust vectors).
 - **Golden files** (Forge): `aegis-forge/tests/fixtures/*.sol` → expected `.ast.json` and spec files, compared byte for byte.
 - **Latency benchmark** (task 11): a testnet run with an injected breach. It records `t0 → signRequestSubmitted` for 50 runs and reports p50 and p99 against 500ms.
 - **UI**: `npm run audit:ui` (the spec-audit rules), plus a component test that the Bulletin renders `role="alert"` and `[!] BREACH` when critical.
