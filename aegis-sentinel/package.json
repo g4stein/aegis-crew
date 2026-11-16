@@ -7,19 +7,26 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc && tsc -p tsconfig.test.json",
+    "runtime": "tsx src/runtime/sentinel.ts",
+    "mcp": "node mcp/chain-state-server.mjs",
+    "typecheck": "tsc && tsc -p tsconfig.test.json && tsc -p tsconfig.node.json",
     "audit:ui": "node ../scripts/hooks/ui-audit.mjs --all",
     "test:pbt": "vitest run tests/pbt",
+    "test:e2e": "vitest run tests/e2e",
     "vectors": "cd contracts/pause-tx && cargo test --release && cargo run --release --quiet --bin vectors > ../../tests/vectors/eip1559-pause.json"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@fontsource/playfair-display": "^5.3.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@noble/hashes": "^2.4.0",
+    "ajv": "^8.20.0",
+    "dotenv": "^18.0.10",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
-    "@noble/hashes": "^2.4.0",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

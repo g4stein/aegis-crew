@@ -1,8 +1,7 @@
-import type { DemoControls } from '../../core/feed';
+import type { ReactNode } from 'react';
 import { formatDelta, formatDuration } from '../../core/format';
 import type { ContractSnapshot, SentinelSnapshot } from '../../core/model';
 import { contractSeverity, overallSeverity, type Severity } from '../../core/severity';
-import { Button } from '../primitives/Button';
 import { Mark } from '../primitives/Glyph';
 import { Cell } from '../primitives/Sheet';
 import { Heading, Label } from '../primitives/Type';
@@ -47,10 +46,22 @@ function copy(severity: Severity, s: SentinelSnapshot, c: ContractSnapshot | und
   };
 }
 
-export function Bulletin({ snapshot, controls }: { snapshot: SentinelSnapshot; controls?: DemoControls }) {
-  const severity = overallSeverity(snapshot);
-  const c = focusContract(snapshot);
-  const text = copy(severity, snapshot, c);
+/** A lost or pending feed is not a breach: it is reported in mono with no acid (design.md, Error Handling). */
+function linkCopy(s: SentinelSnapshot) {
+  const link = s.source?.link;
+  if (link === 'lost') {
+    return { flag: <>[ERR] Feed lost</>, headline: 'Runtime unreachable.', deck: 'Retrying. Start it with npm run -w aegis-sentinel runtime' };
+  }
+  if (link === 'connecting' && s.contracts.length === 0) {
+    return { flag: <><Mark shape="square" /> Connecting</>, headline: 'Waiting for the runtime.', deck: 'Live-mock reads chain state through the chain-state MCP server' };
+  }
+  return undefined;
+}
+
+export function Bulletin({ snapshot, aside }: { snapshot: SentinelSnapshot; aside: ReactNode }) {
+  const linkText = linkCopy(snapshot);
+  const severity: Severity | 'link' = linkText ? 'link' : overallSeverity(snapshot);
+  const text = linkText ?? copy(severity as Severity, snapshot, focusContract(snapshot));
 
   return (
     <>
@@ -67,22 +78,7 @@ export function Bulletin({ snapshot, controls }: { snapshot: SentinelSnapshot; c
         </div>
       </Cell>
       <Cell span={3} as="aside">
-        <div className="controls">
-          {controls ? (
-            <>
-              <Label>Demo controls</Label>
-              <Button onClick={() => controls.simulateBreach()} disabled={severity !== 'nominal'}>
-                <Mark shape="arrow-right" /> Simulate breach
-              </Button>
-              <Button onClick={() => controls.reset()} disabled={severity === 'nominal'}>
-                <Mark shape="arrow-left" /> Reset
-              </Button>
-              <Label tone="ash">Mock feed. No network calls, no signing.</Label>
-            </>
-          ) : (
-            <Label>Live feed</Label>
-          )}
-        </div>
+        {aside}
       </Cell>
     </>
   );

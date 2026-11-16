@@ -9,7 +9,7 @@ export function Masthead({ snapshot }: { snapshot: SentinelSnapshot }) {
   const block = snapshot.contracts[0]?.blockNumber;
   const rows: [string, string][] = [
     ['Network', snapshot.network],
-    ['Feed', snapshot.mode.toUpperCase()],
+    ['Feed', snapshot.source?.kind === 'live-mock' ? 'LIVE-MOCK · MCP' : 'SCRIPTED'],
     ['Block', block === undefined ? '\u2014' : block.toString()],
     ['Date', formatUtcDate(now)],
     ['UTC', formatUtcTime(now)],

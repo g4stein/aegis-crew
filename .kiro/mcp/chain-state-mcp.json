@@ -123,8 +123,12 @@
               "to": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
               "data": { "const": "0x8456cb59", "description": "pause() selector. Any other calldata is refused (Requirement 2.9)." },
               "value": { "const": "0" },
-              "nonce": { "type": "string" },
-              "payload_hash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" }
+              "nonce": { "type": "string", "pattern": "^[0-9]+$" },
+              "gas_limit": { "type": "string", "pattern": "^[0-9]+$" },
+              "max_fee_per_gas": { "type": "string", "pattern": "^[0-9]+$" },
+              "max_priority_fee_per_gas": { "type": "string", "pattern": "^[0-9]+$" },
+              "unsigned_tx": { "type": "string", "pattern": "^0x02[0-9a-fA-F]*$", "description": "EIP-1559 unsigned bytes. Clients re-encode the fields above and check this and payload_hash." },
+              "payload_hash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$", "description": "keccak256(unsigned_tx), the hash passed to the MPC sign method." }
             }
           },
           "sign_request": {
@@ -141,7 +145,7 @@
             "properties": {
               "t0_detected": { "type": "integer" },
               "sign_request_submitted": { "type": "integer" },
-              "detect_to_submit": { "type": "integer", "maximum": 500, "description": "Requirement 2.1 budget." }
+              "detect_to_submit": { "type": "integer", "minimum": 0, "description": "sign_request_submitted - t0_detected. Requirement 2.1 budget is 500 ms; a miss is reported, not rejected." }
             }
           }
         }
@@ -195,18 +199,10 @@
     }
   ],
   "mock": {
-    "$comment": "Fixture used when AEGIS_CHAIN_MODE=mock. No network calls, no signing.",
-    "allowlist": [
-      {
-        "contract_id": "legacy-token",
-        "chain": "eip155:11155111",
-        "address": "0x000000000000000000000000000000000000ae61",
-        "derivation_path": "aegis/legacy-token/pause"
-      }
-    ],
-    "scenarios": {
-      "holding": { "contract_id": "legacy-token", "totalSupply": "1000000", "sumBalances": "1000000" },
-      "breach": { "contract_id": "legacy-token", "totalSupply": "1000000", "sumBalances": "1500000", "breach_id": "brk_demo_0001" }
-    }
+    "$comment": "AEGIS_CHAIN_MODE=mock: no network calls, no real signing. The server reads these files at startup.",
+    "allowlist": "aegis-sentinel/config/guarded.json",
+    "invariants": "aegis-forge/output/<name>.invariants.json (referenced by each allowlist entry)",
+    "chain_fixture": "aegis-sentinel/mcp/fixtures/mock-chain.json",
+    "timing_env": ["AEGIS_MOCK_BREACH_AT_MS", "AEGIS_MOCK_SIGNATURE_MS", "AEGIS_MOCK_BROADCAST_MS", "AEGIS_MOCK_CONFIRM_MS"]
   }
 }

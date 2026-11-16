@@ -1,0 +1,10 @@
+{
+  "$comment": "Node-only code: the runtime, its chain/config/crypto adapters, and the MCP server. Never bundled for the browser.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["node"]
+  },
+  "include": ["src/core", "src/runtime", "src/adapters/chain", "src/adapters/config", "src/adapters/crypto", "mcp/src", "tests/e2e"],
+  "exclude": []
+}

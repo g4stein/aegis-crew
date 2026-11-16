@@ -85,5 +85,5 @@ mitigation_path:
 guardrails:
   - Only the Sentinel agent can reach broadcast_mitigation_payload.
   - broadcast_mitigation_payload takes contract_id and breach_id only; the server builds the pause() payload.
-  - Signer key (AEGIS_SIGNER_KEY) lives only in the Sentinel runtime process; the MCP server proxies to the runtime and holds no key. Never in agent context.
+  - Signer key (AEGIS_SIGNER_KEY) is read only by the chain-state MCP server process (from .env, live mode). Tools never return it, so it never reaches agent context or the browser.
   - Archivist and Verifier have no MCP access (includeMcpJson false).

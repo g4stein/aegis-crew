@@ -1,0 +1,29 @@
+{
+  "$comment": "Mock chain for AEGIS_CHAIN_MODE=mock. Amounts are whole LVS shares as decimal strings. Timeline events fire at at_ms after server start; AEGIS_MOCK_BREACH_AT_MS overrides the first event's time.",
+  "contracts": {
+    "legacy-vault": {
+      "start_block": "7340112",
+      "block_time_ms": 12000,
+      "prefetch": {
+        "nonce": "0",
+        "max_fee_per_gas": "30000000000",
+        "max_priority_fee_per_gas": "1500000000"
+      },
+      "total_supply": "1000000",
+      "holders": {
+        "0x5a0b54d5dc17e0aadc383d2db43b0a0d3e029c4c": "420000",
+        "0x1db3439a222c519ab44bb1144fc28167b4fa6ee6": "310000",
+        "0x7c8999dc9a822c1f0df42023113edb4fdd543266": "270000"
+      },
+      "timeline": [
+        {
+          "at_ms": 15000,
+          "kind": "rawSetBalance",
+          "account": "0x7c8999dc9a822c1f0df42023113edb4fdd543266",
+          "balance": "770000",
+          "note": "Reentrant withdraw() re-credits shares: balanceOf rises by 500,000 LVS while totalSupply is unchanged."
+        }
+      ]
+    }
+  }
+}

@@ -275,9 +275,45 @@
 
 .controls {
   display: grid;
-  grid-template-rows: auto auto auto 1fr;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+  grid-auto-rows: auto;
   gap: 0;
+}
+
+/* ---- Data-source toggle: ruled radio grid, selected option inverted ------------ */
+.toggle {
+  display: grid;
+  grid-template-rows: auto;
+  gap: 0;
+  border: var(--rule);
+  margin-bottom: var(--s3);
+}
+
+.toggle-option {
+  padding: var(--s2) var(--s2);
+  border-right: var(--rule);
+  font-family: var(--font-data);
+  font-size: var(--t-label);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.toggle-option:last-child {
+  border-right: 0;
+}
+
+.toggle-option[aria-checked="true"],
+.toggle-option:hover {
+  background: var(--off-white);
+  color: var(--obsidian);
+}
+
+.toggle-option:active {
+  transform: translate(1px, 1px);
 }
 
 .controls .button + .button {

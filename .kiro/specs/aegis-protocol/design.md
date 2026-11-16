@@ -217,7 +217,25 @@ The derived EVM address (guard account + path) must hold the pause role on the g
 
 ### Chain-state MCP server (`aegis-sentinel/mcp/chain-state-server.mjs`)
 
-This is a stdio MCP server with the tool schemas in `.kiro/mcp/chain-state-mcp.json`. In `mock` mode it serves fixtures. In `live` mode it proxies to the runtime's local HTTP API. It **holds no key**. When the server is registered in `.kiro/settings/mcp.json` (task 7), its `env` needs only `AEGIS_CHAIN_MODE`, `AEGIS_TOOL_SCHEMA`, and `AEGIS_RUNTIME_URL`.
+This is the chain gateway: a stdio MCP server that serves the tool definitions in `.kiro/mcp/chain-state-mcp.json` verbatim and validates every input and output against them with Ajv. It has two clients: the Sentinel runtime (fast path) and the Kiro `aegis-sentinel` agent (supervision). Each spawns its own instance.
+
+- **Payload ownership.** `broadcast_mitigation_payload` accepts only `contract_id`, `breach_id`, and `dry_run`; extra arguments are rejected. The server builds the `pause()` transaction from `config/guarded.json`, runs the core gate, encodes it, and returns `unsigned_tx` and `payload_hash` plus the fields needed to re-encode it.
+- **Lifecycle.** The server drives the mitigation through the core state machine (`core/mitigation/fsm.ts`) and returns the Requirement 2.4 timestamps from `get_mitigation_status`.
+- **Mock mode** (`AEGIS_CHAIN_MODE=mock`, implemented). It reads `config/guarded.json`, the Forge invariants files it names, and `mcp/fixtures/mock-chain.json`, which scripts a reentrancy mis-credit 15 s after start. The MPC signer and target chain are simulated; signatures are not real. Timing overrides: `AEGIS_MOCK_BREACH_AT_MS`, `AEGIS_MOCK_SIGNATURE_MS`, `AEGIS_MOCK_BROADCAST_MS`, `AEGIS_MOCK_CONFIRM_MS`.
+- **Live mode** (tasks 5–6) will call the Aegis Guard contract and the target chain. Its tools currently return errors.
+- **Secrets.** The server loads `.env` at startup (dotenv, `quiet`, existing variables win). In live mode it is the only process that reads `AEGIS_SIGNER_KEY`; the key never reaches the browser bundle or any agent's context. stdout carries MCP messages only; logs go to stderr.
+
+### Sentinel runtime fast path (`aegis-sentinel/src/runtime/sentinel.ts`)
+
+The runtime is an MCP stdio client (`src/adapters/chain/mcp-chain-client.ts`) of the chain-state server. Every `AEGIS_POLL_MS` (100 ms) it runs:
+
+1. **read_state**: `get_contract_invariants`, decoded through `core/wire.ts`.
+2. **evaluate**: `core/fastpath.ts` `planFastPath` recomputes each invariant from `expected` and `observed` (the server's `status` is not trusted) and decides `none`, `reread` (2.14), or `mitigate`. `t0` is taken here.
+3. **encode**: a `dry_run` returns the server-built payload; the runtime re-encodes it with `core/mitigation/payload.ts` and checks `unsigned_tx` and `payload_hash` byte for byte.
+4. **gate**: `approveSignRequest` against the runtime's own allowlist.
+5. **submit_sign**: `broadcast_mitigation_payload` without `dry_run`; the returned `payload_hash` must equal the verified one.
+
+Measured on the mock chain: 6–7 ms from `t0` to submission (budget 500 ms). The runtime serves the dashboard and `/api/{snapshot,stream,restart}` on `127.0.0.1:8787`. `/api/restart` requires an `x-aegis-request` header, which forces a CORS preflight that the runtime never answers.
 
 ### Sentinel dashboard (`aegis-sentinel/src/ui/`)
 

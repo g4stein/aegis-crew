@@ -1,0 +1,77 @@
+{
+  "network": "MOCK CHAIN / eip155:11155111",
+  "mode": "mock",
+  "budget_ms": 500,
+  "source": {
+    "kind": "live-mock",
+    "link": "open",
+    "invariantsFile": "aegis-forge/output/legacy-vault.invariants.json",
+    "invariantsSha256": "11eadab9733d722862e6323f8b53274ab89dd6ac2927dd4839359450c73ef4b7",
+    "sourceSha256": "0050f9fe48b74f8590727a9e668b74c26b072ed69423e73f63e0966662a059b0"
+  },
+  "events": [
+    {
+      "seq": 5,
+      "atMs": 1794840711676,
+      "level": "info",
+      "message": "dashboard and API on http://127.0.0.1:19279"
+    },
+    {
+      "seq": 4,
+      "atMs": 1794840711671,
+      "level": "info",
+      "message": "connected to chain-state MCP server (stdio, mode mock)"
+    },
+    {
+      "seq": 3,
+      "atMs": 1794840711660,
+      "level": "info",
+      "message": "mcp: ready (mode mock, 3 tools from .kiro/mcp/chain-state-mcp.json)"
+    },
+    {
+      "seq": 2,
+      "atMs": 1794840711659,
+      "level": "info",
+      "message": "mcp: guarding legacy-vault (eip155:11155111 0x000000000000000000000000000000000000ae61); invariants from aegis-forge/output/legacy-vault.invariants.json sha256 11eadab9733d"
+    },
+    {
+      "seq": 1,
+      "atMs": 1794840711385,
+      "level": "info",
+      "message": "guarding legacy-vault: invariants from aegis-forge/output/legacy-vault.invariants.json (Forge, source sha256 0050f9fe48b7…)"
+    }
+  ],
+  "contracts": [
+    {
+      "contract_id": "legacy-vault",
+      "chain": "eip155:11155111",
+      "address": "0x000000000000000000000000000000000000ae61",
+      "block_number": "7340112",
+      "read_at_ms": 1794840711674,
+      "paused": false,
+      "invariants": [
+        {
+          "id": "balance-conservation",
+          "requirement": "1.2",
+          "label": "Σ balanceOf = totalSupply",
+          "status": "holding",
+          "expected": "1000000",
+          "observed": "1000000"
+        },
+        {
+          "id": "non-negative-balances",
+          "requirement": "1.4",
+          "label": "balanceOf(a) >= 0",
+          "status": "holding",
+          "expected": "0",
+          "observed": "0"
+        }
+      ],
+      "mitigation": {
+        "state": "none",
+        "attempts": 0,
+        "timeline": {}
+      }
+    }
+  ]
+}

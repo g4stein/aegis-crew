@@ -149,6 +149,7 @@ export class MockFeed implements SnapshotFeed, DemoControls {
       budgetMs: 500,
       contracts: [contract],
       events: [this.event('info', 'Sentinel online. 1 guarded contract, 1 invariant registered.', now)],
+      source: { kind: 'scripted', link: 'open' },
     };
   }
 

@@ -1,0 +1,112 @@
+// End-to-end: runtime -> MCP stdio -> chain-state server (mock) -> pause confirmed.
+// Not part of tests/pbt: it spawns processes and opens a local port. Run: npm run test:e2e
+import { spawn, type ChildProcess } from 'node:child_process';
+import { resolve } from 'node:path';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { McpChainClient } from '../../src/adapters/chain/mcp-chain-client';
+import { decodeSnapshot } from '../../src/core/wire';
+import type { SentinelSnapshot } from '../../src/core/model';
+
+const SENTINEL = resolve(import.meta.dirname, '../..');
+const PORT = 18_000 + Math.floor(Math.random() * 2_000);
+const BASE = `http://127.0.0.1:${PORT}`;
+const FAST = { AEGIS_MOCK_BREACH_AT_MS: '1200', AEGIS_MOCK_SIGNATURE_MS: '400', AEGIS_MOCK_BROADCAST_MS: '100', AEGIS_MOCK_CONFIRM_MS: '400' };
+
+let runtime: ChildProcess | undefined;
+let stderr = '';
+
+async function snapshot(): Promise<SentinelSnapshot | undefined> {
+  try {
+    const r = await fetch(`${BASE}/api/snapshot`);
+    const d = decodeSnapshot(await r.json());
+    return d.ok ? d.value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function waitFor(pred: (s: SentinelSnapshot) => boolean, timeoutMs: number): Promise<SentinelSnapshot> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    const s = await snapshot();
+    if (s && pred(s)) return s;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  throw new Error(`timed out; runtime stderr:\n${stderr.slice(-3000)}`);
+}
+
+describe('live-mock pipeline', () => {
+  beforeAll(() => {
+    runtime = spawn(process.execPath, ['--import', 'tsx', 'src/runtime/sentinel.ts'], {
+      cwd: SENTINEL,
+      env: { ...process.env, ...FAST, AEGIS_RUNTIME_PORT: String(PORT), AEGIS_CHAIN_MODE: 'mock' },
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    runtime.stderr?.on('data', (d: Buffer) => (stderr += d.toString()));
+  });
+  afterAll(() => {
+    runtime?.kill('SIGTERM');
+  });
+
+  it('starts holding, with the registry taken from the Forge output', async () => {
+    const s = await waitFor((x) => x.contracts.length > 0, 20_000);
+    expect(s.source?.kind).toBe('live-mock');
+    expect(s.source?.invariantsFile).toBe('aegis-forge/output/legacy-vault.invariants.json');
+    expect(s.contracts[0]!.contractId).toBe('legacy-vault');
+    expect(s.contracts[0]!.invariants.find((i) => i.id === 'balance-conservation')?.label).toBe('Σ balanceOf = totalSupply');
+  }, 30_000);
+
+  it('detects the breach and submits a sign request within 500 ms of t0 (Req 2.1, 2.4)', async () => {
+    const s = await waitFor((x) => x.contracts[0]?.mitigation.timeline.signRequestSubmitted !== undefined, 20_000);
+    const tl = s.contracts[0]!.mitigation.timeline;
+    expect(tl.t0).toBeDefined();
+    const latency = tl.signRequestSubmitted! - tl.t0!;
+    expect(latency).toBeGreaterThanOrEqual(0);
+    expect(latency).toBeLessThanOrEqual(500);
+    process.stderr.write(`    fast path detect-to-submit: ${latency} ms\n`);
+  }, 30_000);
+
+  it('runs the mitigation to a confirmed pause and stops (Req 2.2, 2.13)', async () => {
+    const s = await waitFor((x) => x.contracts[0]?.paused === true && x.contracts[0]!.mitigation.state === 'confirmed', 20_000);
+    const c = s.contracts[0]!;
+    const tl = c.mitigation.timeline;
+    expect([tl.t0, tl.signRequestSubmitted, tl.signatureReceived, tl.broadcast, tl.confirmed].every((t) => t !== undefined)).toBe(true);
+    expect(tl.signatureReceived!).toBeGreaterThanOrEqual(tl.signRequestSubmitted!);
+    expect(tl.confirmed!).toBeGreaterThanOrEqual(tl.broadcast!);
+    expect(c.mitigation.targetTxHash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(stderr.match(/fast path detect-to-submit/g)?.length).toBe(1);
+  }, 30_000);
+
+  it('rejects restart requests without the custom header', async () => {
+    const r = await fetch(`${BASE}/api/restart`, { method: 'POST' });
+    expect(r.status).toBe(403);
+  });
+});
+
+describe('chain-state MCP server contract', () => {
+  const client = new McpChainClient({ env: { ...FAST, AEGIS_MOCK_BREACH_AT_MS: '300' } });
+  beforeAll(async () => client.connect(), 30_000);
+  afterAll(async () => client.close());
+
+  it('refuses unknown contracts and stale breach IDs', async () => {
+    const unknown = await client.requestPause('not-guarded', 'brk_x', true);
+    expect(unknown.ok && unknown.value).toMatchObject({ status: 'refused', refusalReason: 'not_allowlisted' });
+    const stale = await client.requestPause('legacy-vault', 'brk_bogus', true);
+    expect(stale.ok && stale.value).toMatchObject({ status: 'refused', refusalReason: 'breach_not_current' });
+  });
+
+  it('builds only pause() to the allowlisted target, and dry runs change nothing', async () => {
+    await new Promise((r) => setTimeout(r, 600));
+    const read = await client.readState();
+    expect(read.ok).toBe(true);
+    if (!read.ok) return;
+    const breach = read.value.contracts[0]!.invariants.find((i) => i.status === 'breached');
+    expect(breach?.breachId).toBeDefined();
+    const dry = await client.requestPause('legacy-vault', breach!.breachId!, true);
+    expect(dry.ok && dry.value.status).toBe('dry_run');
+    if (!dry.ok) return;
+    expect(dry.value.payload).toMatchObject({ to: '0x000000000000000000000000000000000000ae61', data: '0x8456cb59', value: '0', chain: 'eip155:11155111' });
+    const after = await client.readState();
+    expect(after.ok && after.value.contracts[0]!.mitigation.state).toBe('none');
+  });
+});

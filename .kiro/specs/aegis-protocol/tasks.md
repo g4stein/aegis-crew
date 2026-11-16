@@ -55,15 +55,15 @@ Each task lists the requirements it covers. Tasks marked `*` are optional for th
     - _Requirements: 2.1, 2.2, 2.11_
   - [ ] 6.3 `evm-broadcaster`
     - _Requirements: 2.2_
-  - [ ] 6.4 `runtime/sentinel.ts` loop; `/api/snapshot`, `/api/stream` (SSE), `/api/mitigate` on `127.0.0.1`; secret redaction in logs
+  - [ ] 6.4 `runtime/sentinel.ts` loop (done against the MCP server in mock mode: fast path, SSE, restart; live adapters pending); `/api/snapshot`, `/api/stream` (SSE), `/api/mitigate` on `127.0.0.1`; secret redaction in logs
     - _Requirements: 2.1, 2.2, 2.4, 2.6, 2.11, 2.12_
-  - [ ] 6.5 `adapters/feed/sse-feed.ts`; switch `main.tsx` to SSE when `VITE_SENTINEL_FEED_URL` is set
+  - [x] 6.5 `adapters/feed/sse-feed.ts`; switch `main.tsx` to SSE when `VITE_SENTINEL_FEED_URL` is set
     - _Requirements: 2.17_
 
 - [ ] 7. Chain-state MCP server
-  - [ ] 7.1 `mcp/chain-state-server.mjs` (stdio) serving the tools in `.kiro/mcp/chain-state-mcp.json`; `mock` mode from fixtures, `live` mode proxying to the runtime
+  - [x] 7.1 `mcp/chain-state-server.mjs` (stdio) serving the tools in `.kiro/mcp/chain-state-mcp.json`; `mock` mode from fixtures (live mode: tasks 5–6)
     - _Requirements: 2.6, 2.12_
-  - [ ] 7.2 Register the server in `.kiro/settings/mcp.json` (env: `AEGIS_CHAIN_MODE`, `AEGIS_TOOL_SCHEMA`, `AEGIS_RUNTIME_URL`; no key); add the file manually if the sandbox blocks writes
+  - [ ] 7.2 Register the server in `.kiro/settings/mcp.json` (env: `AEGIS_CHAIN_MODE`, `AEGIS_TOOL_SCHEMA`; signer settings come from `.env`); add the file manually if the sandbox blocks writes
   - [ ] 7.3 Run `scripts/crew/install.sh`; confirm a heartbeat reports `HOLDING`, then `BREACH→MITIGATING` after an injected breach
 
 - [x] 8. Forge parsing and AST map

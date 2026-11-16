@@ -68,6 +68,20 @@ export interface LogEvent {
   readonly message: string;
 }
 
+export type SourceKind = 'scripted' | 'live-mock';
+export type LinkState = 'connecting' | 'open' | 'lost';
+
+/** Where a snapshot came from, and where its invariants were defined. */
+export interface FeedSource {
+  readonly kind: SourceKind;
+  readonly link: LinkState;
+  /** Repo-relative path of the Forge invariants file that defined the registry. */
+  readonly invariantsFile?: string;
+  readonly invariantsSha256?: string;
+  /** sha256 of the Solidity source the Forge ingested. */
+  readonly sourceSha256?: string;
+}
+
 export interface SentinelSnapshot {
   readonly network: string;
   readonly mode: 'mock' | 'live';
@@ -75,6 +89,7 @@ export interface SentinelSnapshot {
   readonly budgetMs: number;
   readonly contracts: readonly ContractSnapshot[];
   readonly events: readonly LogEvent[];
+  readonly source?: FeedSource;
 }
 
 export const IN_FLIGHT_STATES: ReadonlySet<MitigationState> = new Set<MitigationState>([

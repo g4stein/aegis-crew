@@ -1,0 +1,17 @@
+[runtime] INFO     guarding legacy-vault: invariants from aegis-forge/output/legacy-vault.invariants.json (Forge, source sha256 0050f9fe48b7…)
+[runtime] INFO     mcp: guarding legacy-vault (eip155:11155111 0x000000000000000000000000000000000000ae61); invariants from aegis-forge/output/legacy-vault.invariants.json sha256 11eadab9733d
+[runtime] INFO     mcp: ready (mode mock, 3 tools from .kiro/mcp/chain-state-mcp.json)
+[runtime] INFO     connected to chain-state MCP server (stdio, mode mock)
+[runtime] INFO     dashboard and API on http://127.0.0.1:<port>
+[runtime] INFO     mcp: mock chain: Reentrant withdraw() re-credits shares: balanceOf rises by 500,000 LVS while totalSupply is unchanged. (legacy-vault)
+[runtime] INFO     mcp: mock chain: invariant breached on legacy-vault, breach_id brk_legacy-vault_7340112
+[runtime] CRITICAL INVARIANT BREACHED balance-conservation on legacy-vault (breach brk_legacy-vault_7340112)
+[runtime] INFO     mcp: mitigation mit_brk_legacy-vault_7340112: sign request submitted 30 ms after detection
+[runtime] WARN     fast path detect-to-submit 7 ms of 500 ms (read 0 · encode 5 · gate 0 · submit 2 ms); server detect-to-submit 30 ms
+[runtime] WARN     mit_brk_legacy-vault_7340112: pending signature
+[runtime] INFO     mcp: mock MPC: signature returned for mit_brk_legacy-vault_7340112 (not a real signature)
+[runtime] WARN     mit_brk_legacy-vault_7340112: signed (target tx 0x13daf0d548…)
+[runtime] INFO     mcp: mock chain: pause() broadcast 0x13daf0d548…
+[runtime] WARN     mit_brk_legacy-vault_7340112: broadcast (target tx 0x13daf0d548…)
+[runtime] INFO     mcp: mock chain: pause() confirmed, legacy-vault paused
+[runtime] INFO     mit_brk_legacy-vault_7340112: confirmed (target tx 0x13daf0d548…)

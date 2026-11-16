@@ -11,17 +11,26 @@ import './ui/styles/components.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { SseFeed } from './adapters/feed/sse-feed';
 import { MockFeed } from './adapters/mock/mock-feed';
 import { App } from './ui/App';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root element');
 
-// Task 6.5 adds the SSE feed for VITE_SENTINEL_FEED_URL. Until then the mock feed is the only feed.
-const feed = new MockFeed();
+// SCRIPTED: a timeline played in the browser. LIVE-MOCK: the Sentinel runtime's SSE stream,
+// which reads the chain-state MCP server (src/runtime/sentinel.ts). Base URL is same-origin
+// /api (served by the runtime, or proxied by Vite in dev); override with VITE_SENTINEL_API.
+const scripted = new MockFeed();
+const live = new SseFeed(import.meta.env.VITE_SENTINEL_API ?? '/api');
 
 createRoot(root).render(
   <StrictMode>
-    <App feed={feed} controls={feed} />
+    <App
+      sources={{
+        scripted: { id: 'scripted', label: 'Scripted', feed: scripted, controls: scripted },
+        'live-mock': { id: 'live-mock', label: 'Live-mock', feed: live, controls: live },
+      }}
+    />
   </StrictMode>,
 );

@@ -1,0 +1,14 @@
+{
+  "$comment": "Guarded contracts. Deployment facts live here; invariants come only from the Forge output file named by invariants_file (path relative to the repo root).",
+  "contracts": [
+    {
+      "contract_id": "legacy-vault",
+      "forge_contract": "LegacyVault",
+      "invariants_file": "aegis-forge/output/legacy-vault.invariants.json",
+      "chain": "eip155:11155111",
+      "address": "0x000000000000000000000000000000000000ae61",
+      "derivation_path": "aegis/legacy-vault/eip155:11155111",
+      "gas_limit": "60000"
+    }
+  ]
+}
