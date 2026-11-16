@@ -40,7 +40,7 @@ Each task lists the requirements it covers. Tasks marked `*` are optional for th
     - _Requirements: 2.8, 2.10_
   - [x] 5.2 Implement `request_pause(contract_id, breach_id)`: predecessor check, allowlist, in-flight/duplicate, rate limit, fee-quote freshness, on-chain `enforce` of the built tx (target, chain, selector, value, fee caps), balance check, EIP-1559 `pause()` build via `pause-tx`, keccak hash, MPC `sign` with 1 yN deposit, `on_signature` callback; events and views
     - `SignRequestArgs` / `SignatureResponse` shapes verified against near/mpc (`near-mpc-crypto-types`, wire-format snapshot)
-  - [x] 5.2a Unit tests (near-sdk mocked blockchain, mocked MPC): 18 tests incl. allowlist, selector, fee cap, rate limit, duplicate/in-flight, caller, deposit, callback; 10 mutations caught
+  - [x] 5.2a Unit tests (near-sdk mocked blockchain, mocked MPC): 19 tests incl. allowlist, selector, fee cap, rate limit, duplicate/in-flight, caller, deposit, callback; 10 mutations caught
     - _Requirements: 2.3, 2.7, 2.8, 2.9, 2.12, 2.15_
   - [x] 5.2b Conformance vectors `tests/vectors/aegis-guard.json` from the contract; TS mirror `core/guard.ts` replays them (P20) and is checked against an independent oracle (P19); mock chain-state server runs the mirror
     - _Requirements: 2.5, 2.8, 2.9, 2.12_
@@ -51,7 +51,8 @@ Each task lists the requirements it covers. Tasks marked `*` are optional for th
   - [x] 5.4 `contracts/pause-tx` (Rust, omni-transaction) emits 310 vectors; Sentinel test matches unsigned bytes, signing hash, and signed bytes for every vector
     - _Requirements: 2.15_
   - [ ] 5.5 Deploy to testnet; add a function-call key for the Sentinel account restricted to `request_pause` and one for the fee oracle restricted to `update_fee_quote`; fund the guard for sign deposits; record the derived EVM address
-    - Scripted, not yet run: `.github/workflows/testnet-proof.yml` + `scripts/testnet/proof.mjs` deploy a keyless guard, create a Sentinel with one `request_pause` function-call key, request a real MPC signature, verify the signer recovers to the derived address, check three refusals, and write `.kiro/artifacts/testnet-proof.json`. Needs repo secrets `NEAR_TESTNET_ACCOUNT_ID` / `NEAR_TESTNET_PRIVATE_KEY`. The fee oracle is still the owner account in this script.
+    - Run 43940044484 deployed a keyless guard, created the Sentinel, allowlisted the target, passed `preview_pause` (13 checks), and got a real MPC signature, which the guard then rejected (`recovery_id_mismatch`). Fixed: parity now comes from `recovery_id` (the MPC normalizes `s`); regression test `uses_recovery_id_not_the_point_prefix_for_parity`. Awaiting a green run.
+    - Scripted: `.github/workflows/testnet-proof.yml` + `scripts/testnet/proof.mjs` deploy a keyless guard, create a Sentinel with one `request_pause` function-call key, request a real MPC signature, verify the signer recovers to the derived address, check three refusals, and write `.kiro/artifacts/testnet-proof.json`. Needs repo secrets `NEAR_TESTNET_ACCOUNT_ID` / `NEAR_TESTNET_PRIVATE_KEY`. The fee oracle is still the owner account in this script.
     - _Requirements: 2.5, 2.7_
 
 - [ ] 6. Sentinel chain adapters and runtime

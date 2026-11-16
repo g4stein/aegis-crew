@@ -254,15 +254,16 @@ export function toEcdsa(bigR: string, s: string, recoveryId: number): Result<Ecd
   if (!point.ok || point.value.length !== 33) return err('bad_big_r');
   const sb = hexToBytes(`0x${s.replace(/^0x/, '')}`);
   if (!sb.ok || sb.value.length !== 32) return err('bad_s');
+  // The prefix is not the parity: the MPC normalizes s (low-s), which can flip it, and only
+  // recovery_id reflects that (testnet run 43940044484: prefix 03, recovery_id 0).
   const prefix = point.value[0];
-  const parity = prefix === 0x02 ? 0 : prefix === 0x03 ? 1 : -1;
-  if (parity < 0) return err('bad_big_r_prefix');
-  if (recoveryId !== parity) return err('recovery_id_mismatch');
+  if (prefix !== 0x02 && prefix !== 0x03) return err('bad_big_r_prefix');
+  if (recoveryId !== 0 && recoveryId !== 1) return err('bad_recovery_id');
   let r = 0n;
   for (const b of point.value.subarray(1)) r = (r << 8n) | BigInt(b);
   let sv = 0n;
   for (const b of sb.value) sv = (sv << 8n) | BigInt(b);
-  return ok({ yParity: parity as 0 | 1, r, s: sv });
+  return ok({ yParity: recoveryId, r, s: sv });
 }
 
 export interface SignatureOutcome {

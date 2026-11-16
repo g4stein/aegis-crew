@@ -288,23 +288,27 @@ pub fn enforce(entry: &GuardedContract, tx: &EVMTransaction) -> Result<(), Rejec
 }
 
 /// Converts an MPC secp256k1 response into `(y_parity, r, s)`. `r` is the x-coordinate of the
-/// compressed point; `recovery_id` must agree with the point's prefix.
+/// compressed point `big_r`; `y_parity` is `recovery_id`.
+///
+/// The point's prefix is NOT the parity. The MPC network normalizes `s` to the low half of the
+/// curve order; when it negates `s`, the effective parity flips, and only `recovery_id` reflects
+/// that. Testnet run 43940044484 returned `big_r` = 03… with `recovery_id` 0, and only
+/// y_parity 0 recovers the MPC-derived address (regression test
+/// `uses_recovery_id_not_the_point_prefix_for_parity`).
 pub fn to_ecdsa(big_r_hex: &str, s_hex: &str, recovery_id: u8) -> Result<EcdsaSignature, &'static str> {
     let mut point = [0u8; 33];
     hex::decode_to_slice(big_r_hex.trim_start_matches("0x"), &mut point).map_err(|_| "bad_big_r")?;
     let mut s = [0u8; 32];
     hex::decode_to_slice(s_hex.trim_start_matches("0x"), &mut s).map_err(|_| "bad_s")?;
-    let parity = match point[0] {
-        0x02 => 0u8,
-        0x03 => 1u8,
-        _ => return Err("bad_big_r_prefix"),
-    };
-    if recovery_id != parity {
-        return Err("recovery_id_mismatch");
+    if point[0] != 0x02 && point[0] != 0x03 {
+        return Err("bad_big_r_prefix");
+    }
+    if recovery_id > 1 {
+        return Err("bad_recovery_id");
     }
     let mut r = [0u8; 32];
     r.copy_from_slice(&point[1..]);
-    Ok(EcdsaSignature { y_parity: parity, r, s })
+    Ok(EcdsaSignature { y_parity: recovery_id, r, s })
 }
 
 struct Plan {

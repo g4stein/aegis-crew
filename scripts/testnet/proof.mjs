@@ -44,8 +44,19 @@ const txUrl = (hash) => `${NEARBLOCKS}/txns/${hash}`;
 const accountUrl = (id) => `${NEARBLOCKS}/address/${id}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** Proof so far; written even on failure so a failed run still leaves its explorer links. */
+let partial;
+
+function writeProof(o) {
+  const file = process.env.AEGIS_PROOF_OUT || resolve(REPO, '.kiro/artifacts/testnet-proof.json');
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, `${JSON.stringify(o, (_k, v) => (typeof v === 'bigint' ? v.toString() : v), 2)}\n`);
+  return file;
+}
+
 function fail(msg) {
   process.stderr.write(`[testnet-proof] FAILED: ${msg}\n`);
+  if (partial) process.stderr.write(`[testnet-proof] partial proof written to ${writeProof({ ...partial, failed: msg })}\n`);
   process.exit(1);
 }
 
@@ -117,16 +128,17 @@ async function proof() {
   const sentinelId = `sentinel-${tag}.${me}`;
   expect(guardId.length <= 64 && sentinelId.length <= 64, `account IDs too long for ${me}`);
   const startedAt = new Date().toISOString();
-  const out = { startedAt, network: 'testnet', nearRpc: NEAR_RPC, mpcContract: MPC, owner: me, guard: guardId, sentinel: sentinelId, links: {}, checks: {}, negative: {} };
+  const out = (partial = { startedAt, network: 'testnet', nearRpc: NEAR_RPC, mpcContract: MPC, owner: me, guard: guardId, sentinel: sentinelId, links: {}, checks: {}, negative: {} });
 
   const balance = await owner.getBalance();
   log(`owner ${me}: ${yoctoToNear(balance, 3)} NEAR`);
-  // Storage costs 1e19 yoctoNEAR per byte; fund the wasm plus 0.5 NEAR for state and deposits.
-  const guardFunding = BigInt(wasm.length) * 10n ** 19n + nearToYocto('0.5');
+  // Storage costs 1e19 yoctoNEAR per byte; fund the wasm plus 0.25 NEAR for state and deposits.
+  const guardFunding = BigInt(wasm.length) * 10n ** 19n + nearToYocto('0.25');
   // The Sentinel pays for its own calls. NEAR reserves prepaid gas at a pessimistic price
-  // (run 43938901007: 300 TGas cost 0.3009 NEAR up front), so fund well above the gas used.
-  const sentinelFunding = nearToYocto('1.2');
-  const sentinelAllowance = nearToYocto('1');
+  // (run 43938901007: 300 TGas reserved 0.3009 NEAR), and refunds go to the balance, not the
+  // key allowance. Two Sentinel calls (150 + 100 TGas) reserve about 0.25 NEAR.
+  const sentinelFunding = nearToYocto('0.5');
+  const sentinelAllowance = nearToYocto('0.45');
   const needed = guardFunding + sentinelFunding + nearToYocto('0.3');
   expect(balance > needed, `owner needs at least ${yoctoToNear(needed, 2)} NEAR; has ${yoctoToNear(balance, 2)} (top up at https://near-faucet.io)`);
 
@@ -230,6 +242,16 @@ async function proof() {
     await sleep(2_000);
   }
   expect(m, 'mitigation never appeared; see the request_pause transaction');
+  out.mitigation = m;
+  if (m.status !== 'signed') {
+    // Keep the raw MPC response for diagnosis (it is public on-chain data).
+    const st = await provider.viewTransactionStatus({ txHash: r.hash, accountId: sentinelId, waitUntil: 'NONE' }).catch(() => undefined);
+    for (const ro of st?.receipts_outcome ?? []) {
+      const v = ro.outcome.status?.SuccessValue;
+      if (ro.outcome.executor_id === MPC && v) out.mpcResponse = Buffer.from(v, 'base64').toString();
+    }
+    if (out.mpcResponse) log(`MPC response: ${out.mpcResponse}`);
+  }
   expect(m.status === 'signed', `mitigation ${m.status}${m.error ? `: ${m.error}` : ''} (timeout ${SIGN_TIMEOUT_MS / 1000} s)`);
   out.mitigation = m;
   out.timings = { requestToSignedMs: Date.now() - t0 };
@@ -289,10 +311,7 @@ async function proof() {
   } else out.broadcast.reason = 'AEGIS_BROADCAST not set';
 
   out.finishedAt = new Date().toISOString();
-  const file = process.env.AEGIS_PROOF_OUT || resolve(REPO, '.kiro/artifacts/testnet-proof.json');
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, `${JSON.stringify(out, null, 2)}\n`);
-  log(`wrote ${file}`);
+  log(`wrote ${writeProof(out)}`);
   if (process.env.GITHUB_STEP_SUMMARY) {
     const rows = Object.entries(out.links).map(([k, v]) => `| ${k} | ${v} |`).join('\n');
     appendFileSync(

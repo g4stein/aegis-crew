@@ -699,13 +699,13 @@
             "s": {
               "scalar": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b"
             },
-            "recovery_id": 0
+            "recovery_id": 2
           },
           "expect": {
             "status": "failed",
             "signed_tx": null,
             "signed_tx_hash": null,
-            "error": "recovery_id_mismatch"
+            "error": "bad_recovery_id"
           }
         },
         {
@@ -757,6 +757,58 @@
             "status": "signed",
             "signed_tx": "0x02f87083aa36a780843b9aca008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c0019e5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5aa02b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
             "signed_tx_hash": "0x72c2c89adfb9534b7b0e3456cc65d9c5e32230cac71e8ddf9af4f982d9c3bbf4",
+            "error": null
+          }
+        },
+        {
+          "op": "request_pause",
+          "block": 131,
+          "predecessor": "sentinel.testnet",
+          "available_yocto": "1928000000000000000000000",
+          "args": {
+            "contract_id": "legacy-vault",
+            "breach_id": "brk_d"
+          },
+          "expect": {
+            "ok": true,
+            "mitigation_id": "legacy-vault_brk_d",
+            "unsigned_tx": "0x02ef83aa36a780843b9aca008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c0",
+            "payload_hash": "0x064c552685ec10d6a1913c28e1f44d070ad04c7531075ae1fef19dfecdc67aac",
+            "sign_call": {
+              "receiver": "v1.signer-prod.testnet",
+              "method": "sign",
+              "deposit_yocto": "1",
+              "gas_tgas": 50,
+              "args": {
+                "request": {
+                  "path": "aegis/legacy-vault/eip155:11155111",
+                  "payload_v2": {
+                    "Ecdsa": "064c552685ec10d6a1913c28e1f44d070ad04c7531075ae1fef19dfecdc67aac"
+                  },
+                  "domain_id": 0
+                }
+              }
+            }
+          }
+        },
+        {
+          "op": "on_signature",
+          "block": 132,
+          "mitigation_id": "legacy-vault_brk_d",
+          "result": {
+            "scheme": "Secp256k1",
+            "big_r": {
+              "affine_point": "03b3325dff4fffc066a02e3065a1427c3b2460c32e8ecc05bb9c90cf9403973ac3"
+            },
+            "s": {
+              "scalar": "6e77fdb54a536926fc906c295bfbb5b54d98443be9647d3cab931e86bf413ac2"
+            },
+            "recovery_id": 0
+          },
+          "expect": {
+            "status": "signed",
+            "signed_tx": "0x02f87283aa36a780843b9aca008506fc23ac0082ea6094000000000000000000000000000000000000ae6180848456cb59c080a0b3325dff4fffc066a02e3065a1427c3b2460c32e8ecc05bb9c90cf9403973ac3a06e77fdb54a536926fc906c295bfbb5b54d98443be9647d3cab931e86bf413ac2",
+            "signed_tx_hash": "0x4f0d701f56ebc550d266f92426850c07ea90acfcfcb2033a5bfb121dc683ef56",
             "error": null
           }
         }

@@ -69,7 +69,7 @@ The runtime spawns `aegis-sentinel/mcp/chain-state-server.mjs` over stdio. The m
 npm run -w aegis-sentinel test:pbt   # P1–P12, P17–P20, env hardening + 310 Rust encoding vectors
 npm run -w aegis-forge test:pbt      # P13–P16 + legacy-vault golden test
 npm run -w aegis-sentinel test:e2e   # runtime -> MCP -> Aegis Guard (mirror) -> confirmed pause; in-tab runtime; bundle boundary
-npm run -w aegis-sentinel test:guard # Aegis Guard contract: 18 Rust unit tests (needs cargo)
+npm run -w aegis-sentinel test:guard # Aegis Guard contract: 19 Rust unit tests (needs cargo)
 npm run -w aegis-sentinel typecheck && npm run audit:ui
 npm run -w aegis-sentinel vectors    # regenerate EIP-1559 vectors (needs cargo)
 npm run -w aegis-sentinel guard-vectors  # regenerate guard conformance vectors (needs cargo)
@@ -114,6 +114,10 @@ Creating `aegis-forge/input/legacy-vault.sol` fired `archivist-intake`. The `aeg
 
 - **P9 `stops-when-paused`**, seed `209548967`, shrunk to `breach → paused_observed → timeout`: the state machine re-submitted a sign request after the contract was already paused. Fixed and kept as a regression example.
 - **P15 `risk-detection`**, seed `713695097`: exposed a generator bug that silently skipped a pattern. Fixed and kept as a regression example.
+
+### A bug only the real network could find
+
+The first real MPC signature on testnet (run [43940044484](https://github.com/g4stein/aegis-crew/actions/runs/43940044484)) was rejected by the guard with `recovery_id_mismatch`. The guard assumed the parity of `big_r`'s prefix equals `recovery_id`. It doesn't: the MPC network normalizes `s` to the low half of the curve order, which flips the parity, and only `recovery_id` reflects that. The response had prefix `03` with `recovery_id` 0, and only parity 0 recovers the MPC-derived address. Every mocked test had built its signatures under the same wrong assumption, so they all passed. The guard and its mirror now take parity from `recovery_id`. A Rust regression test replays that exact signature and checks with `env::ecrecover` that it recovers the derived key, and the conformance vectors include it.
 
 ### Mutation testing
 

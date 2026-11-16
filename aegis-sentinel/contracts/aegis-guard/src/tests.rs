@@ -354,16 +354,43 @@ fn failed_mpc_call_marks_failed_and_frees_the_contract() {
 }
 
 #[test]
-fn rejects_signatures_whose_recovery_id_disagrees_with_the_point() {
+fn rejects_out_of_range_recovery_ids() {
     let mut g = setup();
     request(&mut g, SENTINEL, 101, "brk_1").unwrap();
     at(GUARD, 102);
     let mut bad = leading_zero_signature();
     if let SignatureResponse::Secp256k1 { recovery_id, .. } = &mut bad {
-        *recovery_id = 0;
+        *recovery_id = 2;
     }
     assert_eq!(g.on_signature(mitigation_id(VAULT, "brk_1"), Ok(bad)), None);
-    assert_eq!(g.get_mitigation(mitigation_id(VAULT, "brk_1")).unwrap().error.as_deref(), Some("recovery_id_mismatch"));
+    assert_eq!(g.get_mitigation(mitigation_id(VAULT, "brk_1")).unwrap().error.as_deref(), Some("bad_recovery_id"));
+    assert_eq!(to_ecdsa(&format!("02{}", "11".repeat(32)), &"22".repeat(32), 27).unwrap_err(), "bad_recovery_id");
+}
+
+/// Regression: the first real MPC signature (testnet run 43940044484, guard
+/// guard-r43940044484.aegis-g4stein.testnet). `big_r` has prefix 03 but `recovery_id` is 0,
+/// because the MPC normalized `s`. The guard used to require prefix parity == recovery_id and
+/// rejected this valid signature. Only y_parity 0 recovers the MPC-derived address
+/// 0x1a32B4ACbFC533f90757053692D2A8CC47892Cdf (checked off-chain with viem).
+#[test]
+fn uses_recovery_id_not_the_point_prefix_for_parity() {
+    let sig = to_ecdsa(
+        "03b3325dff4fffc066a02e3065a1427c3b2460c32e8ecc05bb9c90cf9403973ac3",
+        "6e77fdb54a536926fc906c295bfbb5b54d98443be9647d3cab931e86bf413ac2",
+        0,
+    )
+    .unwrap();
+    assert_eq!(sig.y_parity, 0);
+    assert_eq!(hex::encode(sig.r), "b3325dff4fffc066a02e3065a1427c3b2460c32e8ecc05bb9c90cf9403973ac3");
+
+    // The recovered public key must be the MPC-derived key for (guard, path).
+    let hash = hex::decode("a7ee310aca4b14c25da54abf7beb6a7208247c9b270b8bcd29675b2d03c04489").unwrap();
+    let mut rs = [0u8; 64];
+    rs[..32].copy_from_slice(&sig.r);
+    rs[32..].copy_from_slice(&sig.s);
+    let derived = "7c6eec77a3d43ddf43e091c58f6d42f47c47a6193a3b072a2f0ed50466221a79643494f7558b9998e7ef6d3619a0b6b292a84ee6ffb321d24b8c964d337d958c";
+    assert_eq!(env::ecrecover(&hash, &rs, 0, true).map(hex::encode).as_deref(), Some(derived));
+    assert_ne!(env::ecrecover(&hash, &rs, 1, true).map(hex::encode).as_deref(), Some(derived), "prefix parity (1) must not recover the derived key");
 }
 
 #[test]
@@ -428,8 +455,15 @@ fn build_vectors() -> Value {
     let five = NearToken::from_near(5);
     let mut bad_rid = leading_zero_signature();
     if let SignatureResponse::Secp256k1 { recovery_id, .. } = &mut bad_rid {
-        *recovery_id = 0;
+        *recovery_id = 2;
     }
+    // A valid signature whose point prefix (03) disagrees with its recovery_id (0), as the MPC
+    // returns after normalizing s (testnet run 43940044484). Must be accepted with y_parity 0.
+    let flipped = SignatureResponse::Secp256k1 {
+        big_r: AffinePointHex { affine_point: "03b3325dff4fffc066a02e3065a1427c3b2460c32e8ecc05bb9c90cf9403973ac3".into() },
+        s: ScalarHex { scalar: "6e77fdb54a536926fc906c295bfbb5b54d98443be9647d3cab931e86bf413ac2".into() },
+        recovery_id: 0,
+    };
     let mut even = [0x77u8; 33];
     even[0] = 0x02;
     let even_sig = SignatureResponse::Secp256k1 { big_r: AffinePointHex { affine_point: hex::encode(even) }, s: ScalarHex { scalar: format!("00{}", "44".repeat(31)) }, recovery_id: 0 };
@@ -491,6 +525,8 @@ fn build_vectors() -> Value {
                 Sign { block: 112, contract: VAULT, breach: "brk_b", result: Some(bad_rid) },
                 Request { block: 121, pred: SENTINEL, contract: VAULT, breach: "brk_c", balance: five },
                 Sign { block: 122, contract: VAULT, breach: "brk_c", result: Some(leading_zero_signature()) },
+                Request { block: 131, pred: SENTINEL, contract: VAULT, breach: "brk_d", balance: five },
+                Sign { block: 132, contract: VAULT, breach: "brk_d", result: Some(flipped) },
             ],
         ),
     ];

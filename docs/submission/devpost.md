@@ -43,7 +43,7 @@ Spec first, then code, with every commit gated by property tests.
 - **Custom agents.** `aegis-archivist` may only run the ingest CLI and write spec/output paths. `aegis-verifier` is read-only and runs the tests. `aegis-sentinel` has MCP tools only: no shell, no writes.
 - **MCP.** A chain-state MCP server whose tool schema (`.kiro/mcp/chain-state-mcp.json`) is the single source of truth: the server serves it verbatim and validates every input and output against it. Callers pass only `contract_id` and `breach_id`; they can't choose a payload.
 - **Kiro Crew.** `.kiro/crew.yaml` describes the three-agent swarm and `scripts/crew/install.sh` registers its schedules (an intake check every 2 minutes, a Sentinel heartbeat every minute).
-- **Property-based testing.** 20 properties, each tied to a requirement ID, 1,000 generated cases each: 338 Sentinel tests, 7 Forge tests, 15 end-to-end tests, 18 Rust guard tests.
+- **Property-based testing.** 20 properties, each tied to a requirement ID, 1,000 generated cases each: 338 Sentinel tests, 7 Forge tests, 15 end-to-end tests, 19 Rust guard tests.
 - **Vibe sessions on top of specs.** Exploratory work (repo audits, Vercel build failures, the in-browser runtime) happened in Kiro Web vibe sessions, and the Playwright power captured the screenshots used as evidence. The PBT gate applied to every change.
 
 The hook-to-agent chain caught a real bug on its first run: creating the vault file fired `archivist-intake`, and the Archivist reported that the Forge had **missed a reentrancy** in `deposit()`. We fixed detector R4, regenerated the spec, and the Verifier re-ran both suites.
@@ -53,6 +53,7 @@ The hook-to-agent chain caught a real bug on its first run: creating the vault f
 - **The signing deposit.** NEAR's MPC `sign` call needs an attached deposit, and NEAR function-call keys can't attach deposits. A restricted bot key could never sign directly. That one constraint is why the Aegis Guard exists: the guard pays the deposit, and the bot's key can only ask.
 - **A 1-in-128 encoding bug.** `omni-transaction` 0.5.0 (NEAR's transaction builder) appends signature `r` and `s` as raw 32-byte strings. When either starts with a zero byte (about 1 in 128 MPC signatures), the transaction isn't canonical RLP, and go-ethereum rejects it (`rlp: non-canonical integer`). We strip leading zeros, pin 310 Rust-to-TypeScript vectors byte for byte, and force a leading-zero `r` in every mock run so the fix is always exercised. We wrote up the upstream issue (`docs/upstream/`).
 - **Making property tests honest.** We injected 36 bugs on purpose (14 in the TypeScript cores, 10 in the Rust guard, 12 in its TypeScript mirror). The first round let 3 through, so we strengthened the generators until every one was caught.
+- **A bug only the real network could find.** The first real MPC signature on testnet was rejected by our own guard. We had assumed the parity of the signature point's prefix equals `recovery_id`, but the MPC network normalizes `s`, which flips it. Every mocked test had built signatures under the same wrong assumption, so they all passed. The fix takes parity from `recovery_id`, and a regression test replays that exact testnet signature through `ecrecover`.
 - **Keeping the browser keyless.** The demo runs the runtime in the tab, so a test walks the bundle's import graph and fails if it ever reaches the Node host, the chain adapters, the MCP server, or Node-only packages.
 
 ## Accomplishments that we're proud of
@@ -102,7 +103,7 @@ The Crew is deliberately *not* in the 500 ms path. An LLM heartbeat can't meet t
 | Guard checks | 13 | `CHECKS` in `contracts/aegis-guard/src/lib.rs`; `GUARD_CHECKS` in `src/core/guard.ts` |
 | Detect-to-submit | 3 ms (in-tab), 7–8 ms (Node + MCP stdio), budget 500 ms | `tests/e2e/*`, screenshot 08, `.kiro/artifacts/live-mock/runtime.log` |
 | Properties | 20 (P1–P20), 1,000 runs each | `.kiro/specs/aegis-protocol/design.md`, `tests/pbt/setup.ts` |
-| Tests | 338 Sentinel PBT, 7 Forge, 15 e2e, 18 guard (Rust), 3 pause-tx (Rust) | `npm run -w aegis-sentinel test:pbt` etc. |
+| Tests | 338 Sentinel PBT, 7 Forge, 15 e2e, 19 guard (Rust), 3 pause-tx (Rust) | `npm run -w aegis-sentinel test:pbt` etc. |
 | Mutations caught | 36 of 36 (14 + 10 + 12) | README, Mutation testing |
 | Encoding vectors | 310 | `tests/vectors/eip1559-pause.json` |
 | Leading-zero rate | 1 − (255/256)² ≈ 0.78% ≈ 1 in 128 | arithmetic |
