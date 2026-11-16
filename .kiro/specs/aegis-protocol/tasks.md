@@ -6,7 +6,7 @@ Each task lists the requirements it covers. Tasks marked `*` are optional for th
   - [x] 1.1 Add TypeScript, `vitest`, and `fast-check` to both apps; add `tests/pbt/setup.ts` with `fc.configureGlobal({ numRuns: 1000 })`
     - Add `test:pbt` scripts that run `vitest run tests/pbt` in each app
     - _Requirements: 1.8_
-  - [ ] 1.2 Run `npm install` at the root so `prepare` sets `core.hooksPath` to `.githooks`; confirm the pbt-guard blocks a commit with a failing property
+  - [x] 1.2 Run `npm install` at the root so `prepare` sets `core.hooksPath` to `.githooks`; confirm the pbt-guard blocks a commit with a failing property
     - _Requirements: 1.6, 1.7_
 
 - [x] 2. Sentinel UI foundation
@@ -61,7 +61,7 @@ Each task lists the requirements it covers. Tasks marked `*` are optional for th
     - _Requirements: 2.2_
   - [ ] 6.4 `runtime/sentinel.ts` loop (done against the MCP server in mock mode: fast path, SSE, restart; live adapters pending); `/api/snapshot`, `/api/stream` (SSE), `/api/mitigate` on `127.0.0.1`; secret redaction in logs
     - _Requirements: 2.1, 2.2, 2.4, 2.6, 2.11, 2.12_
-  - [x] 6.5 `adapters/feed/sse-feed.ts`; switch `main.tsx` to SSE when `VITE_SENTINEL_FEED_URL` is set
+  - [x] 6.5 `adapters/feed/sse-feed.ts`; SCRIPTED / LIVE-MOCK toggle in the dashboard (`?source=`; API base `VITE_SENTINEL_API`)
     - _Requirements: 2.17_
 
 - [ ] 7. Chain-state MCP server

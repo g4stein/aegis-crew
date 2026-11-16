@@ -18,16 +18,18 @@ The dashboard has two data sources:
 
 | Path | Layer | Rule |
 |---|---|---|
-| `src/core/` | Pure core | Invariants, gate, payload, state machine, fast-path decisions, wire codecs, config validation. No I/O. Covered by `tests/pbt/`. |
+| `src/core/` | Pure core | Invariants, gate, payload, state machine, fast-path decisions, Aegis Guard mirror, wire codecs, config validation. No I/O. Covered by `tests/pbt/`. |
 | `src/adapters/chain/` | Adapter (Node) | MCP stdio client for the chain-state server. |
 | `src/adapters/config/`, `src/adapters/crypto/` | Adapter (Node) | Config file loading, keccak256. |
 | `src/adapters/feed/`, `src/adapters/mock/` | Adapter (browser) | SSE feed, scripted feed. |
-| `src/adapters/audio/` | Adapter | WebAudio alarm output. |
+| `src/adapters/audio/` | Adapter | WebAudio alarm output (planned, task 11.4; empty today). |
 | `src/runtime/` | Entry (Node) | Fast path loop and local HTTP/SSE API. |
 | `src/ui/` | Presentation | React components. Must follow `.kiro/steering/ui-manifesto.md`. |
 | `mcp/` | Entry (Node) | chain-state MCP server; tools from `.kiro/mcp/chain-state-mcp.json`. |
-| `contracts/pause-tx/` | Rust | `pause()` transaction builder; emits `tests/vectors/`. |
+| `contracts/pause-tx/` | Rust | `pause()` transaction builder; emits `tests/vectors/eip1559-pause.json`. |
+| `contracts/aegis-guard/` | Rust (NEAR) | Aegis Guard contract: `request_pause(contract_id, breach_id)`, on-chain checks, MPC `sign` with deposit. `npm run test:guard`; emits `tests/vectors/aegis-guard.json`. |
+| `config/guarded.json` | Config | Guard settings and guarded contracts; invariants are loaded from the Forge output each entry names. |
 | `tests/pbt/` | Tests | Property-based tests (vitest + fast-check), run by the pre-commit guard. |
-| `tests/e2e/` | Tests | Runtime + MCP server end to end (`npm run -w aegis-sentinel test:e2e`). |
+| `tests/e2e/` | Tests | Runtime + MCP server + guard mirror end to end (`npm run -w aegis-sentinel test:e2e`). |
 
 See `.kiro/steering/architecture.md`.

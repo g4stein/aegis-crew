@@ -297,7 +297,14 @@ function send(res: ServerResponse, code: number, type: string, body: string | Bu
 
 function serveStatic(req: IncomingMessage, res: ServerResponse): void {
   if (!existsSync(DIST)) return send(res, 404, 'text/plain; charset=utf-8', 'Dashboard not built. Run: npm run -w aegis-sentinel build');
-  const path = decodeURIComponent((req.url ?? '/').split('?')[0]!);
+  let path: string;
+  try {
+    // A malformed escape (e.g. "/%E0%A4%A") throws URIError; it must not crash the runtime.
+    path = decodeURIComponent((req.url ?? '/').split('?')[0]!);
+  } catch {
+    return send(res, 400, 'text/plain', 'bad request');
+  }
+  if (path.includes('\0')) return send(res, 400, 'text/plain', 'bad request');
   let file = normalize(join(DIST, path));
   if (!file.startsWith(DIST + sep) && file !== DIST) return send(res, 403, 'text/plain', 'forbidden');
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(DIST, 'index.html');
@@ -318,6 +325,7 @@ async function main(): Promise<void> {
     if (url === '/api/snapshot' && req.method === 'GET') return send(res, 200, 'application/json', rt.currentJson() || '{}');
     if (url === '/api/stream' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Content-Type-Options': 'nosniff' });
+      res.on('error', () => undefined); // a client that vanished mid-write must not crash the runtime
       const push = (json: string) => res.write(`event: snapshot\ndata: ${json}\n\n`);
       if (rt.currentJson()) push(rt.currentJson());
       const off = rt.onSnapshot(push);
@@ -340,7 +348,14 @@ async function main(): Promise<void> {
     }
     if (url?.startsWith('/api/')) return send(res, 404, 'text/plain', 'not found');
     if (req.method !== 'GET') return send(res, 405, 'text/plain', 'method not allowed');
-    serveStatic(req, res);
+    try {
+      serveStatic(req, res);
+    } catch (e) {
+      // Last line of defense: one bad request (unreadable file, race with a rebuild) never kills the fast path.
+      rt.log('warn', `static file error: ${e instanceof Error ? e.message : String(e)}`);
+      if (!res.headersSent) send(res, 500, 'text/plain', 'internal error');
+      else res.end();
+    }
   });
   http.listen(PORT, '127.0.0.1', () => rt.log('info', `dashboard and API on http://127.0.0.1:${PORT}`));
 

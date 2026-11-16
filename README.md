@@ -17,7 +17,7 @@ The Forge's output is the Sentinel's input: `aegis-forge/output/legacy-vault.inv
 
 ## Quickstart
 
-Requires Node 22+. Rust is needed only to regenerate the test vectors.
+Requires Node 22+. Rust (cargo) is needed only for the Aegis Guard contract tests and to regenerate test vectors.
 
 ```sh
 npm install        # also activates the pre-commit PBT guard and applies the parser patch
@@ -47,14 +47,20 @@ npm run -w aegis-sentinel runtime    # open http://127.0.0.1:8787/?source=live-m
 
 The runtime spawns `aegis-sentinel/mcp/chain-state-server.mjs` over stdio. The mock chain mis-credits 500,000 shares 15 s after start (a reentrant `withdraw`); the runtime detects it, verifies and submits the pause, and the contract ends up paused. **Restart mock chain** replays it.
 
+### Deployed dashboard
+
+`vercel.json` builds the dashboard as a static site. Only **Scripted** works there: **Live-mock** needs the Node runtime and MCP server, so on Vercel it shows `[ERR] Feed lost`.
+
 ### Tests
 
 ```sh
-npm run -w aegis-sentinel test:pbt   # P1–P12, P17–P18 + 310 Rust vectors
+npm run -w aegis-sentinel test:pbt   # P1–P12, P17–P20, env hardening + 310 Rust encoding vectors
 npm run -w aegis-forge test:pbt      # P13–P16 + legacy-vault golden test
-npm run -w aegis-sentinel test:e2e   # runtime -> MCP -> confirmed pause
+npm run -w aegis-sentinel test:e2e   # runtime -> MCP -> Aegis Guard (mirror) -> confirmed pause
+npm run -w aegis-sentinel test:guard # Aegis Guard contract: 18 Rust unit tests (needs cargo)
 npm run -w aegis-sentinel typecheck && npm run audit:ui
-npm run -w aegis-sentinel vectors    # regenerate Rust vectors (needs cargo)
+npm run -w aegis-sentinel vectors    # regenerate EIP-1559 vectors (needs cargo)
+npm run -w aegis-sentinel guard-vectors  # regenerate guard conformance vectors (needs cargo)
 ```
 
 ---
@@ -63,14 +69,14 @@ npm run -w aegis-sentinel vectors    # regenerate Rust vectors (needs cargo)
 
 | Kiro feature | Artifact | What it does here |
 |---|---|---|
-| **Specs** | [`.kiro/specs/aegis-protocol/`](.kiro/specs/aegis-protocol/) | EARS requirements, design (architecture, interfaces, 18 correctness properties), and a task plan with every completed task checked off. |
+| **Specs** | [`.kiro/specs/aegis-protocol/`](.kiro/specs/aegis-protocol/) | EARS requirements, design (architecture, interfaces, 20 correctness properties), and a task plan with every completed task checked off. |
 | **Generated specs** | [`.kiro/specs/legacy-vault-modernization/`](.kiro/specs/legacy-vault-modernization/) | Written by the Forge CLI, not by hand. A golden test fails if anyone edits them. |
 | **Steering** | [`architecture.md`](.kiro/steering/architecture.md) (always), [`ui-manifesto.md`](.kiro/steering/ui-manifesto.md) (fileMatch on Sentinel UI) | Pure core vs adapters, so property tests run headless; Editorial Brutalism rules for the dashboard. |
-| **Hooks** | [`.kiro/hooks/`](.kiro/hooks/) | `pbt-guard` (PreToolUse on `git commit`) runs `vitest run tests/pbt` for changed cores and blocks on failure; `spec-audit` (PostToolUse on writes) runs the manifesto audit; `archivist-intake` (PostFileCreate on `aegis-forge/input/*.sol`) starts the Archivist. `.githooks/pre-commit` applies the same PBT gate to commits made outside Kiro. |
+| **Hooks** | [`.kiro/hooks/`](.kiro/hooks/) | `pbt-guard` (PreToolUse on `git commit`) runs `vitest run tests/pbt` when a core or anything the suites depend on changes (tests, vectors, Forge schema/input/output) and blocks on failure; `spec-audit` (PostToolUse on writes) runs the manifesto audit; `archivist-intake` (PostFileCreate on `aegis-forge/input/*.sol`) starts the Archivist. `.githooks/pre-commit` applies the same PBT gate to commits made outside Kiro. |
 | **Custom agents** | [`.kiro/agents/`](.kiro/agents/) | `aegis-archivist` (may run only the ingest CLI and write only spec/output paths), `aegis-verifier` (read-only, runs PBT), `aegis-sentinel` (MCP tools only, no shell, no writes). |
 | **Crew** | [`.kiro/crew.yaml`](.kiro/crew.yaml), [`scripts/crew/install.sh`](scripts/crew/install.sh) | Manifest of the three-agent swarm; the script registers the intake schedule and the Sentinel heartbeat with Kiro Crew. |
 | **MCP** | [`.kiro/mcp/chain-state-mcp.json`](.kiro/mcp/chain-state-mcp.json), [`.kiro/settings/mcp.json`](.kiro/settings/mcp.json) | Tool schema is the single source of truth: the server serves it verbatim and validates every input and output against it. |
-| **Property-based testing** | `*/tests/pbt/` | 18 named properties at 1,000 runs each, each tied to a requirement ID. |
+| **Property-based testing** | `*/tests/pbt/` | 20 named properties, each tied to a requirement ID. Generated properties run 1,000 cases each; P20 replays fixed vectors produced by the Rust guard contract. |
 
 ### The hook → Archivist → Verifier chain, live
 
@@ -83,7 +89,11 @@ Creating `aegis-forge/input/legacy-vault.sol` fired `archivist-intake`. The `aeg
 
 ### Mutation testing
 
-Fourteen deliberate bugs were injected into the cores one at a time (skip conservation, allow negative amounts, mutate input, ignore value or target in the gate, break RLP, swap fields, allow duplicate mitigations, ignore stale state, ignore paused, unsorted JSON, mis-parse `^` pragmas, disable R3, emit a non-EARS line). Every one was caught by its property.
+Deliberate bugs were injected one at a time, and every one was caught:
+
+- **TypeScript cores (14):** skip conservation, allow negative amounts, mutate input, ignore value or target in the gate, break RLP, swap fields, allow duplicate mitigations, ignore stale state, ignore paused, unsorted JSON, mis-parse `^` pragmas, disable R3, emit a non-EARS line.
+- **Aegis Guard contract, Rust (10):** skip the selector, target, fee-cap, rate-limit, in-flight, or caller check; zero deposit; write state before checks; quote-age off-by-one; non-canonical `r`/`s`.
+- **Guard mirror, TypeScript (12):** the same rule classes, plus domain ID, recovery ID, value, and chain. The first run let three through (quote-age off-by-one, in-flight, selector); P19's generators were strengthened until all were caught.
 
 ---
 
@@ -97,6 +107,7 @@ Fourteen deliberate bugs were injected into the cores one at a time (skip conser
 | 310 cross-language encoding vectors (Rust `omni-transaction` ↔ TypeScript, byte for byte) | [`aegis-sentinel/tests/vectors/eip1559-pause.json`](aegis-sentinel/tests/vectors/eip1559-pause.json), from [`contracts/pause-tx`](aegis-sentinel/contracts/pause-tx/) |
 | `omni-transaction` leading-zero finding: raw 32-byte `r`/`s` encode non-canonically for about 1 in 128 signatures, which Ethereum nodes reject. The crate strips leading zeros; vectors lock it in. | [`contracts/pause-tx/src/lib.rs`](aegis-sentinel/contracts/pause-tx/src/lib.rs) |
 | `@solidity-parser/parser` 0.20.2 crashed without a location on some syntax errors; patched to report `line:column` | [`patches/@solidity-parser+parser+0.20.2.patch`](patches/@solidity-parser+parser+0.20.2.patch) |
+| Aegis Guard conformance vectors: scripted scenarios run against the real contract (near-sdk mocked blockchain), replayed byte for byte by the TypeScript mirror (P20) | [`aegis-sentinel/tests/vectors/aegis-guard.json`](aegis-sentinel/tests/vectors/aegis-guard.json), from [`contracts/aegis-guard`](aegis-sentinel/contracts/aegis-guard/) |
 | Forge output for the 2019-era vault: 9 risks (legacy pragma, `tx.origin` auth, unchecked call, 4× call-before-write), 1 balance invariant | [`aegis-forge/output/`](aegis-forge/output/), [`legacy-vault-modernization/requirements.md`](.kiro/specs/legacy-vault-modernization/requirements.md) |
 
 ---
@@ -104,12 +115,12 @@ Fourteen deliberate bugs were injected into the cores one at a time (skip conser
 ## Security model
 
 - **Keyless signing.** The target-chain key is never stored, loaded, or derived. NEAR Chain Signatures' MPC network signs for an address derived from the guard contract and a per-contract derivation path.
-- **Aegis Guard contract.** The MPC `sign` method needs an attached deposit, and NEAR function-call keys cannot attach deposits. So the Sentinel's key can call only the guard's `request_pause`; the guard pays the deposit, builds the `pause()` transaction itself, and enforces the allowlist, a fee cap, and a per-contract rate limit on-chain. A stolen Sentinel key can at most pause allowlisted contracts, slowly.
+- **Aegis Guard contract.** The MPC `sign` method needs an attached deposit, and NEAR function-call keys cannot attach deposits. So the Sentinel's key can call only the guard's `request_pause(contract_id, breach_id)`; the guard builds the `pause()` transaction itself, enforces 13 checks on-chain (allowlist, target, chain, selector, value, fee caps, quote freshness, per-contract rate limit, no duplicate or in-flight request, balance), and pays the 1 yoctoNEAR deposit from its own balance. A stolen Sentinel key can at most pause allowlisted contracts, slowly.
 - **The caller cannot choose the payload.** `broadcast_mitigation_payload` accepts only `contract_id`, `breach_id`, and `dry_run`. The server builds the transaction; the runtime re-encodes it, checks the hash, and runs its own gate before submitting.
-- **Where the key lives.** `AEGIS_SIGNER_KEY` comes from `.env` (git-ignored; see [`.env.example`](.env.example)) and is read only by the chain-state server process. No tool returns it, so it never enters an agent's context, and the browser bundle contains no chain or signer code (checked on every build).
+- **Where the key lives.** `AEGIS_SIGNER_KEY` comes from `.env` (git-ignored; see [`.env.example`](.env.example)) and is read only by the chain-state server process. No tool returns it, so it never enters an agent's context, and the browser bundle contains no chain or signer code (`tsconfig.json` excludes the Node-only adapters, runtime, and MCP server from the browser build). The server also ignores unexpanded `${...}` placeholders passed by an MCP host, so a literal `"${AEGIS_SIGNER_KEY}"` can never override `.env`.
 - **Defense in depth.** The pure core rejects any calldata other than `0x8456cb59`, any non-zero value, and any target or chain not on the allowlist (P6). EIP-1559 transactions carry `chainId`, and each contract and chain gets its own derivation path, so signatures cannot be replayed elsewhere.
 - **Agents are least-privilege.** Solidity input is treated as data, never compiled or executed. The Sentinel agent has no shell and no write access.
-- **Status.** The NEAR guard contract and live chain adapters are still to do (tasks 5–6). Today the full pipeline runs against the mock chain.
+- **Status.** The Aegis Guard contract is implemented and unit-tested in near-sdk's mocked blockchain; it has not yet been built to wasm, sandbox-tested, or deployed (tasks 5.3, 5.5). Live chain adapters are task 6. Today the full pipeline runs against the mock chain, with the guard enforced by its conformance-tested mirror.
 
 ---
 

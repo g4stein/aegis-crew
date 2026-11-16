@@ -14,9 +14,21 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+// Pure cores, plus everything the PBT suites themselves depend on: the tests, their vectors and
+// schema, the MCP env code they import, and the Forge output pinned by the golden test.
+// Without these, a commit could weaken a property or edit a vector without running the suite.
 const WATCHED = [
   { prefix: 'aegis-forge/src/logic/', app: 'aegis-forge' },
+  { prefix: 'aegis-forge/src/adapters/', app: 'aegis-forge' },
+  { prefix: 'aegis-forge/tests/pbt/', app: 'aegis-forge' },
+  { prefix: 'aegis-forge/schema/', app: 'aegis-forge' },
+  { prefix: 'aegis-forge/input/', app: 'aegis-forge' },
+  { prefix: 'aegis-forge/output/', app: 'aegis-forge' },
+  { prefix: '.kiro/specs/legacy-vault-modernization/', app: 'aegis-forge' },
   { prefix: 'aegis-sentinel/src/core/', app: 'aegis-sentinel' },
+  { prefix: 'aegis-sentinel/tests/pbt/', app: 'aegis-sentinel' },
+  { prefix: 'aegis-sentinel/tests/vectors/', app: 'aegis-sentinel' },
+  { prefix: 'aegis-sentinel/mcp/src/env.ts', app: 'aegis-sentinel' },
 ];
 const IGNORED_BASENAMES = new Set(['.gitkeep']);
 const PBT_DIR = 'tests/pbt';
@@ -84,12 +96,16 @@ function main() {
   const files = [...new Set(changedFiles())].filter(
     (f) => !IGNORED_BASENAMES.has(f.split('/').pop()),
   );
-  const apps = WATCHED.filter((w) => files.some((f) => f.startsWith(w.prefix)));
-  if (apps.length === 0) return 0;
+  // One run per app, listing every watched path that changed.
+  const byApp = new Map();
+  for (const w of WATCHED) {
+    if (files.some((f) => f.startsWith(w.prefix))) byApp.set(w.app, [...(byApp.get(w.app) ?? []), w.prefix]);
+  }
+  if (byApp.size === 0) return 0;
 
   const failures = [];
-  for (const { app, prefix } of apps) {
-    log(`[pbt-guard] Changes in ${prefix}. Running: vitest run ${PBT_DIR} (cwd ${app})`);
+  for (const [app, prefixes] of byApp) {
+    log(`[pbt-guard] Changes in ${prefixes.join(', ')}. Running: vitest run ${PBT_DIR} (cwd ${app})`);
     const result = spawnSync('npx', ['--no-install', 'vitest', 'run', PBT_DIR], {
       cwd: join(root, app),
       stdio: ['ignore', 2, 2],

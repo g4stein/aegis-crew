@@ -14,7 +14,7 @@ Both apps follow `.kiro/steering/architecture.md`: deterministic logic lives in 
 | Decision | Choice | Reason |
 |---|---|---|
 | Who signs on breach | An on-chain **Aegis Guard** contract on NEAR calls the MPC `sign` method | The MPC `sign` method requires an attached deposit, and NEAR function-call keys cannot attach deposits. A contract can pay the deposit and enforce the allowlist and `pause()` selector on-chain (Requirements 2.7–2.9). |
-| Where the signer key lives | Only in the Sentinel **runtime** process (Node) | A key in a Vite bundle would be public. The browser dashboard never sees it (2.11). |
+| Where the signer key lives | Only in the chain-state MCP server process (Node, live mode), read from `.env` | No tool returns it, so it never reaches an agent's context; a key in a Vite bundle would be public, and the browser bundle contains no chain or signer code (2.11). |
 | Who meets the 500ms budget | The deterministic runtime, not an LLM agent | One LLM turn takes seconds. The Kiro `aegis-sentinel` agent supervises every 60s (`.kiro/crew.yaml`). |
 | What the 500ms covers | `t0` → NEAR sign transaction submitted | MPC signatures arrive asynchronously over several NEAR blocks (Open Question 1 in requirements). |
 | Target-chain transaction | EIP-1559 (type 2), with `chainId` | EIP-155 replay protection. One derivation path per guarded contract and chain, as NEAR's docs recommend. |
@@ -34,16 +34,15 @@ flowchart LR
   FWRITE -->|"requirements/design/tasks.md"| SPECS[(.kiro/specs/&lt;name&gt;-modernization)]
 
   subgraph Sentinel["aegis-sentinel"]
-    RT[runtime/sentinel.ts<br/>Node, owns key] --> CORE[core: invariants, gate, payload, mitigation FSM]
-    RT --> EVM[adapters/chain/evm-reader + evm-broadcaster]
-    RT --> NEAR[adapters/chain/near-guard-client]
+    RT[runtime/sentinel.ts<br/>Node, fast path] --> CORE[core: invariants, fastpath, gate, payload, guard mirror, FSM]
+    RT -->|MCP stdio| MCP[mcp/chain-state-server.mjs<br/>chain gateway, holds signer key]
     RT -->|SSE /api/stream| UI[ui/ React dashboard]
-    MCP[mcp/chain-state-server.mjs<br/>stdio, no key] -->|HTTP /api/*| RT
   end
   OUT -->|invariant registry| RT
-  NEAR -->|request_pause| GUARD[aegis-guard contract<br/>NEAR, Rust]
-  GUARD -->|"sign (payable)"| MPC[v1.signer / v1.signer-prod.testnet]
-  EVM -->|eth_sendRawTransaction| TARGET[Guarded contract<br/>EVM, pause role held by derived address]
+  OUT -->|invariant registry| MCP
+  MCP -->|"request_pause (live, task 6)"| GUARD[aegis-guard contract<br/>NEAR, Rust]
+  GUARD -->|"sign + 1 yN deposit"| MPC[v1.signer / v1.signer-prod.testnet]
+  MCP -->|"eth_sendRawTransaction (live, task 6)"| TARGET[Guarded contract<br/>EVM, pause role held by derived address]
   KIRO[Kiro aegis-sentinel agent] -->|MCP tools| MCP
 ```
 
@@ -52,12 +51,12 @@ flowchart LR
 | Layer | Forge | Sentinel |
 |---|---|---|
 | Pure core | `src/logic/` | `src/core/` |
-| Adapters | `src/adapters/` | `src/adapters/chain/`, `src/adapters/audio/`, `src/adapters/mock/`, `src/adapters/feed/` |
+| Adapters | `src/adapters/` | `src/adapters/chain/` (MCP client), `src/adapters/config/`, `src/adapters/crypto/`, `src/adapters/feed/`, `src/adapters/mock/`, `src/adapters/audio/` (planned) |
 | Entry points | `src/cli/` | `src/runtime/` (Node), `src/main.tsx` (browser composition root), `mcp/` (MCP server) |
 | Presentation | — | `src/ui/` |
 | On-chain | — | `contracts/aegis-guard/` (Rust, near-sdk) |
 
-The browser bundle imports `src/core/`, `src/ui/`, `src/adapters/feed/`, `src/adapters/mock/`, and `src/adapters/audio/` only. It never imports `src/adapters/chain/` or `src/runtime/`.
+The browser bundle imports `src/core/`, `src/ui/`, `src/adapters/feed/`, and `src/adapters/mock/` only. It never imports `src/adapters/{chain,config,crypto}/`, `src/runtime/`, or `mcp/` (enforced by `tsconfig.json` excludes and a bundle check).
 
 ## Components and Interfaces
 
@@ -148,8 +147,12 @@ The state machine is the only place mitigation policy lives. It returns a list o
 
 ### Sentinel adapters
 
+Live-mode adapters (planned, task 6) and the adapters that exist today:
+
 | Adapter | Port (declared in core) | Responsibility |
 |---|---|---|
+| `adapters/chain/mcp-chain-client.ts` (exists) | — | MCP stdio client of the chain-state server; decodes every result through `core/wire.ts`. |
+| `adapters/config/load-guarded.ts` (exists) | — | Reads `config/guarded.json` and the Forge invariants files it names; validation in `core/config.ts`. |
 | `adapters/chain/evm-reader.ts` | `ChainStateReader` | At a pinned block, read `totalSupply`, `paused()`, and `balanceOf` for the tracked holder set (built by replaying `Transfer` logs from the deployment block), through Multicall3. |
 | `adapters/chain/evm-prefetch.ts` | `EvmPrefetcher` | Each block, refresh nonce and EIP-1559 fees for every derived address. |
 | `adapters/chain/near-guard-client.ts` | `GuardClient` | Build and sign the NEAR transaction calling `aegis-guard.request_pause` with the function-call key, and send it with `broadcast_tx_async` (one RPC round trip). Track the result with `tx` status polling. The NEAR access-key nonce and a recent block hash are cached, so submitting needs no extra round trip. |
@@ -160,15 +163,9 @@ The state machine is the only place mitigation policy lives. It returns a list o
 
 ### Sentinel runtime (`aegis-sentinel/src/runtime/`)
 
-`sentinel.ts` is a Node process. It loads the invariant registry and allowlist from `aegis-sentinel/config/guarded.json`, reads `AEGIS_*` variables from the environment, and runs one loop per target-chain block:
+`sentinel.ts` is a Node process. It loads the guarded config (and through it the Forge invariants), spawns the chain-state MCP server over stdio, and runs the fast path described under "Sentinel runtime fast path" below. Duplicate requests are blocked twice: by the runtime's submitted-breach set (2.12) and by the guard's in-flight and duplicate-breach checks.
 
-1. `ChainStateReader.read(block)` produces a `ContractSnapshot`.
-2. `evaluate` runs. On the first `breached` reading, `t0 = clock.now()`.
-3. `step(..., breach_detected)` returns `submit_sign`.
-4. `formatPauseIntent` → `approveSignRequest` → `GuardClient.requestPause` (submits and returns the NEAR transaction hash).
-5. When the signature arrives, `encodeEip1559Signed` → `Broadcaster.send` runs. A receipt and `paused() == true` move the state to `confirmed`.
-
-The runtime serves `GET /api/snapshot`, `GET /api/stream` (SSE), and `POST /api/mitigate {contract_id, breach_id}`, bound to `127.0.0.1`. `POST /api/mitigate` goes through the same state machine, so a duplicate request from the MCP server is ignored (2.12).
+The runtime serves `GET /api/snapshot`, `GET /api/stream` (SSE), `POST /api/restart` (mock mode only), and the built dashboard, bound to `127.0.0.1`.
 
 **Latency budget for Requirement 2.1** (`t0` → NEAR transaction accepted by RPC):
 
@@ -254,7 +251,7 @@ This is the chain gateway: a stdio MCP server that serves the tool definitions i
 - **Env hardening.** Before loading `.env`, the server unsets any variable whose value is still an unexpanded `${...}` placeholder (`mcp/src/env.ts`), so a literal `"${AEGIS_SIGNER_KEY}"` passed by an MCP host can never override `.env`.
 - **Lifecycle.** The server drives the mitigation through the core state machine (`core/mitigation/fsm.ts`) and returns the Requirement 2.4 timestamps from `get_mitigation_status`.
 - **Mock mode** (`AEGIS_CHAIN_MODE=mock`, implemented). It reads `config/guarded.json`, the Forge invariants files it names, and `mcp/fixtures/mock-chain.json`, which scripts a reentrancy mis-credit 15 s after start. The Aegis Guard runs as its conformance-tested mirror (a fee oracle posts quotes each mock NEAR block; the guard pays the deposit from a 5 NEAR mock balance). The MPC signer and target chain are simulated; signatures are deterministic and not real, with `r` forced to start with a zero byte so the canonical encoder is exercised on every run. Timing overrides: `AEGIS_MOCK_BREACH_AT_MS`, `AEGIS_MOCK_SIGNATURE_MS`, `AEGIS_MOCK_BROADCAST_MS`, `AEGIS_MOCK_CONFIRM_MS`.
-- **Live mode** (tasks 5–6) will call the Aegis Guard contract and the target chain. Its tools currently return errors.
+- **Live mode** (task 6) will call the deployed Aegis Guard contract and the target chain. Its tools currently return errors.
 - **Secrets.** The server loads `.env` at startup (dotenv, `quiet`, existing variables win). In live mode it is the only process that reads `AEGIS_SIGNER_KEY`; the key never reaches the browser bundle or any agent's context. stdout carries MCP messages only; logs go to stderr.
 
 ### Sentinel runtime fast path (`aegis-sentinel/src/runtime/sentinel.ts`)
@@ -283,7 +280,7 @@ It is a newspaper front page on a rigid 12-column grid with 1px rules. From top 
 | Event log | Tail of runtime events in mono |
 | Colophon | Fonts, spec references |
 
-`src/main.tsx` picks the feed: `SseFeed` when `VITE_SENTINEL_FEED_URL` is set, otherwise `MockFeed` with demo controls (SIMULATE BREACH, RESET).
+`src/main.tsx` builds both feeds; a SCRIPTED / LIVE-MOCK radio toggle (also `?source=`) selects one. SCRIPTED is `MockFeed` with demo controls (SIMULATE BREACH, RESET); LIVE-MOCK is `SseFeed` on same-origin `/api` (override with `VITE_SENTINEL_API`). A lost runtime shows `[ERR] Feed lost` with no acid.
 
 ### Forge (`aegis-forge/`)
 
@@ -350,18 +347,21 @@ On the wire (SSE, MCP), `bigint` fields are decimal strings that match `^-?[0-9]
 
 ```json
 {
+  "guard": { "account": "aegis-guard.testnet", "owner": "…", "sentinel": "…", "fee_oracle": "…",
+             "mpc_contract": "v1.signer-prod.testnet", "sign_deposit_yocto": "1",
+             "sign_gas_tgas": 50, "max_quote_age_blocks": "120" },
   "contracts": [{
-    "contract_id": "legacy-token",
-    "chain": "eip155:11155111",
-    "address": "0x…",
-    "derivation_path": "aegis/legacy-token/eip155:11155111",
-    "invariants": [{ "id": "balance-conservation", "kind": "balance-conservation",
-                     "balances": "balanceOf", "supply": "totalSupply" }]
+    "contract_id": "legacy-vault", "forge_contract": "LegacyVault",
+    "invariants_file": "aegis-forge/output/legacy-vault.invariants.json",
+    "chain": "eip155:11155111", "address": "0x…",
+    "derivation_path": "aegis/legacy-vault/eip155:11155111", "gas_limit": "60000",
+    "max_fee_per_gas_cap": "200000000000", "max_priority_fee_per_gas_cap": "5000000000",
+    "min_interval_blocks": "10"
   }]
 }
 ```
 
-The `invariants` entries use the same format as the Forge's `<name>.invariants.json`.
+Invariants are not copied into this file: each entry names the Forge output that defines them, and `core/config.ts` loads the registry from it (with the file's sha256 as provenance).
 
 ### Forge AST map (`<name>.ast.json`)
 

@@ -40,6 +40,10 @@ export async function writeIngest(result: IngestResult, paths: OutputPaths, forc
   const tmpSpec = `${paths.specDir}${tag}`;
   const tmpAst = `${paths.astPath}${tag}`;
   const tmpInv = `${paths.invariantsPath}${tag}`;
+  // With --force the existing spec is moved aside, not deleted, until the new one is in place,
+  // so a failed write never leaves the user with neither version.
+  const backup = `${paths.specDir}.bak-${process.pid}`;
+  let movedAside = false;
   try {
     await mkdir(tmpSpec, { recursive: true });
     for (const [file, content] of Object.entries(result.specFiles)) await writeFile(join(tmpSpec, file), content);
@@ -47,13 +51,21 @@ export async function writeIngest(result: IngestResult, paths: OutputPaths, forc
     await writeFile(tmpAst, result.astJson);
     await writeFile(tmpInv, result.invariantsJson);
 
-    if (force) await rm(paths.specDir, { recursive: true, force: true });
+    if (force && existsSync(paths.specDir)) {
+      await rename(paths.specDir, backup);
+      movedAside = true;
+    }
     await rename(tmpSpec, paths.specDir);
     await rename(tmpAst, paths.astPath);
     await rename(tmpInv, paths.invariantsPath);
+    if (movedAside) await rm(backup, { recursive: true, force: true });
     return ok(paths);
   } catch (e) {
     await Promise.all([tmpSpec, tmpAst, tmpInv].map((p) => rm(p, { recursive: true, force: true })));
+    if (movedAside) {
+      await rm(paths.specDir, { recursive: true, force: true }).catch(() => undefined);
+      await rename(backup, paths.specDir).catch(() => undefined);
+    }
     return err(`write failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 }

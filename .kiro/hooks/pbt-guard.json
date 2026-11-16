@@ -4,7 +4,7 @@
     {
       "name": "pbt-guard",
       "trigger": "PreToolUse",
-      "description": "Before any shell command containing `git commit`, runs `vitest run tests/pbt` in each app whose pure core changed (aegis-forge/src/logic/, aegis-sentinel/src/core/). Exit 2 blocks the commit. Fails closed if tests cannot run. Mirrored by .githooks/pre-commit for commits made outside Kiro.",
+      "description": "Before any shell command containing `git commit`, runs `vitest run tests/pbt` in each app whose pure core or PBT inputs changed (cores, tests/pbt, test vectors, Forge schema/input/output and generated spec, MCP env code; full list in scripts/hooks/pbt-guard.mjs). Exit 2 blocks the commit. Fails closed if tests cannot run. Mirrored by .githooks/pre-commit for commits made outside Kiro.",
       "matcher": "shell",
       "action": {
         "type": "command",
