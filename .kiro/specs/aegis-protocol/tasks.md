@@ -46,7 +46,7 @@ Each task lists the requirements it covers. Tasks marked `*` are optional for th
     - _Requirements: 2.5, 2.8, 2.9, 2.12_
     - _Requirements: 2.5, 2.7, 2.8, 2.9, 2.10_
   - [ ] 5.3 `near-workspaces` sandbox tests for the guard (needs the `wasm32-unknown-unknown` target; not installable in this sandbox)
-    - Wasm build done: `aegis_guard.wasm` (329 KB, Rust 1.86, `--cfg near`) builds and exports every contract method; `.github/workflows/ci.yml` builds it with cargo-near on every push. Sandbox tests still pending.
+    - Wasm build done: `aegis_guard.wasm` builds with cargo-near on Rust 1.86 in `.github/workflows/ci.yml` on every push (264,188 bytes after wasm-opt; first green run 43931303774) and exports every contract method. Sandbox tests still pending.
     - _Requirements: 2.8, 2.9, 2.16_
   - [x] 5.4 `contracts/pause-tx` (Rust, omni-transaction) emits 310 vectors; Sentinel test matches unsigned bytes, signing hash, and signed bytes for every vector
     - _Requirements: 2.15_

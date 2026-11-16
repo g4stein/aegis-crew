@@ -1,17 +1,29 @@
 # AEGIS CREW
 
-**Spec-driven resurrection of legacy smart contracts, plus keyless autonomous defense while they are still live.**
+**Reads a dead 2019 smart contract, writes its spec, and guards it with no human key.**
 
-Kiroween 2026, Skeleton Crew category. One spec-driven foundation (`.kiro/`), two apps:
+[![ci](https://github.com/g4stein/aegis-crew/actions/workflows/ci.yml/badge.svg)](https://github.com/g4stein/aegis-crew/actions/workflows/ci.yml)
 
-| App | What it does |
+Kiroween 2026, **Frankenstein** category. AEGIS CREW stitches together parts that were never built to work together:
+
+- a 2019 Solidity vault (`pragma ^0.4.24`, `tx.origin` auth, reentrancy),
+- Kiro's spec-driven agents, hooks, and steering,
+- NEAR Chain Signatures, an MPC network that signs Ethereum transactions for a NEAR contract,
+- a Rust guard contract that is the only path to that signer.
+
+The result is one pipeline: legacy code goes in, and a verified emergency `pause()` comes out within milliseconds of a breach, with no private key anywhere in the loop.
+
+**Try it:** [aegis-crew.vercel.app/?source=live-mock](https://aegis-crew.vercel.app/?source=live-mock). The whole pipeline runs in your browser tab: a breach fires 15 s after load and ends in a confirmed pause. Nothing to install.
+
+| Part | What it does |
 |---|---|
-| [`aegis-forge`](aegis-forge/) | CLI. Parses a legacy Solidity file (never compiles or runs it), emits a JSON AST map, detects legacy risks, proposes invariants, and writes a Kiro modernization spec in EARS syntax. |
-| [`aegis-sentinel`](aegis-sentinel/) | Dashboard + runtime. Loads the invariants the Forge proposed, watches chain state through an MCP server, and on a breach requests a `pause()` signed by NEAR Chain Signatures within 500 ms of detection. No human holds the target-chain key. |
+| [`aegis-forge`](aegis-forge/) | CLI. Parses legacy Solidity as data (never compiles or runs it), emits a JSON AST map, flags legacy risks, proposes invariants, and writes a Kiro modernization spec in EARS syntax. |
+| [`aegis-sentinel`](aegis-sentinel/) | Dashboard + runtime. Enforces the invariants the Forge proposed, reads chain state through an MCP server, and on a breach requests a `pause()` from the Aegis Guard within 500 ms of detection. |
+| [`contracts/aegis-guard`](aegis-sentinel/contracts/aegis-guard/) | NEAR contract (Rust). Builds the `pause()` transaction itself, runs 13 checks, pays the MPC deposit, and asks NEAR Chain Signatures to sign. The Sentinel's key can call nothing else. |
 
 The Forge's output is the Sentinel's input: `aegis-forge/output/legacy-vault.invariants.json` defines the invariant the Sentinel enforces, and the dashboard shows that file's path and sha256.
 
-![Live-mock breach: Acid Green bulletin, 7 ms detect-to-submit](.kiro/artifacts/screenshots/sentinel-05-live-mock-breach.png)
+![Live-mock breach: Acid Green bulletin, 3 ms detect-to-submit, in-tab runtime](.kiro/artifacts/screenshots/sentinel-08-in-tab-breach.png)
 
 ---
 
@@ -63,6 +75,21 @@ npm run -w aegis-sentinel vectors    # regenerate EIP-1559 vectors (needs cargo)
 npm run -w aegis-sentinel guard-vectors  # regenerate guard conformance vectors (needs cargo)
 ```
 
+[`ci.yml`](.github/workflows/ci.yml) runs all of the above from a clean checkout on every push, checks that the Forge reproduces its committed output byte for byte, and builds `aegis_guard.wasm` with cargo-near.
+
+### Testnet proof (Aegis Guard on NEAR testnet)
+
+[`testnet-proof.yml`](.github/workflows/testnet-proof.yml) is a manual workflow that runs [`scripts/testnet/proof.mjs`](scripts/testnet/proof.mjs). On fresh accounts it:
+
+1. creates the guard account, deploys the wasm, and initializes it in one transaction that adds no access key, so nobody holds a key to the guard;
+2. creates a Sentinel account whose only key is a function-call key for `request_pause`;
+3. allowlists the target and posts a fee quote (owner account);
+4. sends `request_pause` from the Sentinel key with 0 deposit; the guard runs its 13 checks, pays the deposit, and calls `v1.signer-prod.testnet.sign`;
+5. waits for the MPC signature and checks offline that the signed transaction is `pause()` to the allowlisted target and that its signer recovers to the MPC-derived address;
+6. checks three refusals: a non-Sentinel caller, a replayed breach, and the Sentinel key calling an owner method.
+
+It writes every explorer link to `.kiro/artifacts/testnet-proof.json`. To run it, add the repo secrets `NEAR_TESTNET_ACCOUNT_ID` and `NEAR_TESTNET_PRIVATE_KEY` (a testnet account with about 5 NEAR), then start the workflow from the Actions tab. **It has not run yet**; this README will link the transactions once it does.
+
 ---
 
 ## How Kiro was used
@@ -76,6 +103,7 @@ npm run -w aegis-sentinel guard-vectors  # regenerate guard conformance vectors 
 | **Custom agents** | [`.kiro/agents/`](.kiro/agents/) | `aegis-archivist` (may run only the ingest CLI and write only spec/output paths), `aegis-verifier` (read-only, runs PBT), `aegis-sentinel` (MCP tools only, no shell, no writes). |
 | **Crew** | [`.kiro/crew.yaml`](.kiro/crew.yaml), [`scripts/crew/install.sh`](scripts/crew/install.sh) | Manifest of the three-agent swarm; the script registers the intake schedule and the Sentinel heartbeat with Kiro Crew. |
 | **MCP** | [`.kiro/mcp/chain-state-mcp.json`](.kiro/mcp/chain-state-mcp.json), [`.kiro/settings/mcp.json`](.kiro/settings/mcp.json) | Tool schema is the single source of truth: the server serves it verbatim and validates every input and output against it. |
+| **Vibe sessions on top of specs** | `git log` | Specs set the contract; vibe sessions did the exploratory work: auditing the repo, diagnosing Vercel build failures, and the in-tab runtime. Every change still went through the PBT gate. |
 | **Property-based testing** | `*/tests/pbt/` | 20 named properties, each tied to a requirement ID. Generated properties run 1,000 cases each; P20 replays fixed vectors produced by the Rust guard contract. |
 
 ### The hook → Archivist → Verifier chain, live
@@ -121,7 +149,7 @@ Deliberate bugs were injected one at a time, and every one was caught:
 - **Where the key lives.** `AEGIS_SIGNER_KEY` comes from `.env` (git-ignored; see [`.env.example`](.env.example)) and is read only by the chain-state server process. No tool returns it, so it never enters an agent's context, and the browser bundle contains no chain or signer code: [`tests/e2e/bundle-boundary.test.ts`](aegis-sentinel/tests/e2e/bundle-boundary.test.ts) walks the bundle's import graph and fails if it reaches the Node host, the chain/config/crypto adapters, the MCP server, or Node-only packages. The server also ignores unexpanded `${...}` placeholders passed by an MCP host, so a literal `"${AEGIS_SIGNER_KEY}"` can never override `.env`.
 - **Defense in depth.** The pure core rejects any calldata other than `0x8456cb59`, any non-zero value, and any target or chain not on the allowlist (P6). EIP-1559 transactions carry `chainId`, and each contract and chain gets its own derivation path, so signatures cannot be replayed elsewhere.
 - **Agents are least-privilege.** Solidity input is treated as data, never compiled or executed. The Sentinel agent has no shell and no write access.
-- **Status.** The Aegis Guard contract is implemented and unit-tested in near-sdk's mocked blockchain; it has not yet been built to wasm, sandbox-tested, or deployed (tasks 5.3, 5.5). Live chain adapters are task 6. Today the full pipeline runs against the mock chain, with the guard enforced by its conformance-tested mirror.
+- **Status.** The Aegis Guard contract is implemented, unit-tested in near-sdk's mocked blockchain, and builds to a 264 KB wasm with cargo-near in CI. The testnet deployment is scripted but has not run yet (task 5.5), and `near-workspaces` sandbox tests are still pending (5.3). Live EVM adapters are task 6. Today the full pipeline runs against the mock chain, with the guard enforced by its conformance-tested TypeScript mirror, both in the Node runtime and in the browser tab.
 
 ---
 

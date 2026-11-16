@@ -1,7 +1,7 @@
 {
   "name": "aegis-crew",
   "private": true,
-  "description": "AEGIS CREW: legacy contract modernization (Forge) and live invariant monitoring (Sentinel). Kiroween 2026, Skeleton Crew.",
+  "description": "AEGIS CREW: reads a legacy smart contract, writes its spec (Forge), and guards it with a keyless pause via NEAR Chain Signatures (Sentinel + Aegis Guard). Kiroween 2026, Frankenstein.",
   "workspaces": [
     "aegis-forge",
     "aegis-sentinel"

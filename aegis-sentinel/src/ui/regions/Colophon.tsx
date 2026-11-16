@@ -15,7 +15,7 @@ export function Colophon() {
         </div>
         <div>
           <Label tone="ash">Edition</Label>
-          <div>AEGIS CREW · Kiroween 2026 · Skeleton Crew</div>
+          <div>AEGIS CREW · Kiroween 2026 · Frankenstein</div>
         </div>
       </div>
     </Cell>
